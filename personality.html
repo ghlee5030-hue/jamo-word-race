@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>테스트 우주</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f3ff;
+      --ink: #17151f;
+      --muted: #7b7688;
+      --line: #e8e1f6;
+      --card: #ffffff;
+      --lav: #8c7cff;
+      --pink: #ff83b7;
+      --blue: #68b8ff;
+      --mint: #72debd;
+      --yellow: #ffe071;
+      --shadow: 0 16px 44px rgba(83, 72, 134, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 8%, rgba(255, 131, 183, 0.2), transparent 25%),
+        radial-gradient(circle at 92% 18%, rgba(104, 184, 255, 0.22), transparent 25%),
+        linear-gradient(180deg, #fff9fd 0%, var(--bg) 44%, #eef8ff 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .page {
+      width: min(100%, 480px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 14px 14px 24px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: -14px -14px 0;
+      padding: 14px;
+      border-bottom: 1px solid rgba(232, 225, 246, 0.72);
+      background: rgba(255, 249, 253, 0.86);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 950;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      color: white;
+      background: linear-gradient(135deg, var(--lav), var(--pink));
+      box-shadow: 0 10px 24px rgba(140, 124, 255, 0.28);
+    }
+
+    .ghost {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 11px;
+      color: #4d4662;
+      background: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .screen {
+      display: none;
+      animation: rise 220ms ease both;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .hero {
+      display: grid;
+      gap: 12px;
+      padding: 22px 4px 8px;
+      text-align: center;
+    }
+
+    .tag-row,
+    .traits {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .tag,
+    .trait {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      color: #655d78;
+      background: rgba(255, 255, 255, 0.84);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 40px;
+      line-height: 1.02;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .lead {
+      color: var(--muted);
+      line-height: 1.58;
+      word-break: keep-all;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 22px 0 10px;
+      font-size: 18px;
+      font-weight: 950;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .test-card {
+      overflow: hidden;
+      min-height: 246px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      text-align: left;
+      padding: 0;
+    }
+
+    .thumb {
+      position: relative;
+      height: 148px;
+      overflow: hidden;
+      background: var(--cover);
+    }
+
+    .thumb::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -42px;
+      width: 210px;
+      height: 88px;
+      transform: translateX(-50%) rotate(-5deg);
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.55);
+      background: rgba(255, 255, 255, 0.32);
+    }
+
+    .face {
+      position: absolute;
+      left: 50%;
+      bottom: 24px;
+      width: 92px;
+      height: 92px;
+      transform: translateX(-50%);
+      border-radius: 48% 52% 46% 54%;
+      background:
+        radial-gradient(circle at 37% 40%, #17151f 0 4px, transparent 5px),
+        radial-gradient(circle at 63% 40%, #17151f 0 4px, transparent 5px),
+        radial-gradient(ellipse at 50% 64%, var(--cheek) 0 10px, transparent 11px),
+        linear-gradient(145deg, #fffaf0 0%, #ffffff 48%, rgba(255, 255, 255, 0.48) 100%);
+      box-shadow: 0 14px 34px rgba(83, 72, 134, 0.18);
+    }
+
+    .floating {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 30px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.76);
+      color: #62577b;
+      font-size: 11px;
+      font-weight: 950;
+      box-shadow: 0 8px 22px rgba(83, 72, 134, 0.12);
+    }
+
+    .floating.a {
+      left: 12px;
+      top: 16px;
+      transform: rotate(-8deg);
+    }
+
+    .floating.b {
+      right: 12px;
+      bottom: 22px;
+      transform: rotate(8deg);
+    }
+
+    .card-body {
+      display: grid;
+      gap: 5px;
+      padding: 10px;
+    }
+
+    .card-body strong {
+      font-size: 16px;
+      line-height: 1.28;
+      word-break: keep-all;
+    }
+
+    .card-body span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .name-card,
+    .quiz-card,
+    .result-card {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.93);
+      box-shadow: var(--shadow);
+    }
+
+    .selected-cover {
+      position: relative;
+      overflow: hidden;
+      min-height: 310px;
+      margin-top: 14px;
+      border-radius: 8px;
+      background: var(--cover);
+      box-shadow: var(--shadow);
+    }
+
+    .selected-cover .face {
+      width: 154px;
+      height: 154px;
+      bottom: 48px;
+    }
+
+    .selected-cover .floating {
+      width: 70px;
+      height: 44px;
+      font-size: 14px;
+    }
+
+    .selected-cover .floating.a {
+      left: 24px;
+      top: 42px;
+    }
+
+    .selected-cover .floating.b {
+      right: 28px;
+      bottom: 78px;
+    }
+
+    .name-card {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .name-card input {
+      width: 100%;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 14px;
+      outline: 0;
+      background: #fbfaff;
+      color: var(--ink);
+      font-weight: 850;
+    }
+
+    .primary {
+      min-height: 50px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 16px;
+      color: white;
+      background: linear-gradient(135deg, var(--lav), #ff6faa);
+      box-shadow: 0 12px 28px rgba(140, 124, 255, 0.26);
+      cursor: pointer;
+      font-weight: 950;
+    }
+
+    .quiz-card {
+      display: grid;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    .progress-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .progress {
+      height: 9px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #eee9fa;
+    }
+
+    .bar {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--lav), var(--pink), var(--blue));
+      transition: width 220ms ease;
+    }
+
+    .question {
+      font-size: 27px;
+      line-height: 1.16;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .answers {
+      display: grid;
+      gap: 10px;
+    }
+
+    .answer {
+      width: 100%;
+      min-height: 64px;
+      border: 1px solid #e9e2f5;
+      border-radius: 8px;
+      padding: 14px;
+      color: #2f2a3d;
+      background: #ffffff;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 850;
+      line-height: 1.45;
+      box-shadow: 0 8px 20px rgba(83, 72, 134, 0.07);
+    }
+
+    .result-card {
+      display: grid;
+      gap: 13px;
+      padding: 18px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      width: fit-content;
+      margin: 0 auto;
+      border-radius: 8px;
+      padding: 0 12px;
+      color: #655d78;
+      background: #f6f2ff;
+      font-weight: 950;
+    }
+
+    .result-card h2 {
+      font-size: 34px;
+      line-height: 1.08;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 20;
+      min-height: 38px;
+      border-radius: 8px;
+      padding: 9px 14px;
+      color: white;
+      background: #17151f;
+      font-weight: 900;
+      opacity: 0;
+      transform: translateX(-50%) translateY(12px);
+      transition: opacity 160ms ease, transform 160ms ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 370px) {
+      .test-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">T</div>
+        <span>테스트 우주</span>
+      </div>
+      <button class="ghost" id="wordGameButton">낱자 게임</button>
+    </header>
+
+    <section class="screen active" id="homeScreen">
+      <div class="hero">
+        <div class="tag-row">
+          <span class="tag">심리테스트</span>
+          <span class="tag">친구 공유</span>
+          <span class="tag">짧고 귀엽게</span>
+        </div>
+        <h1>오늘은 어떤 테스트 해볼까?</h1>
+        <p class="lead">가볍게 고르고, 빠르게 결과를 보고, 친구들이랑 비교해보세요.</p>
+      </div>
+      <div class="section-title">
+        <span>인기 테스트</span>
+        <span class="tag" id="testCount">0개</span>
+      </div>
+      <div class="test-grid" id="testGrid"></div>
+    </section>
+
+    <section class="screen" id="startScreen">
+      <div class="selected-cover" id="selectedCover" aria-hidden="true">
+        <div class="floating a" id="coverWordA">LOVE</div>
+        <div class="floating b" id="coverWordB">MOOD</div>
+        <div class="face"></div>
+      </div>
+      <div class="hero">
+        <div class="tag-row" id="selectedTags"></div>
+        <h1 id="selectedTitle"></h1>
+        <p class="lead" id="selectedDescription"></p>
+      </div>
+      <div class="name-card">
+        <input id="nameInput" maxlength="14" placeholder="닉네임을 입력하세요">
+        <button class="primary" id="startButton">테스트 시작하기</button>
+      </div>
+    </section>
+
+    <section class="screen" id="quizScreen">
+      <div class="quiz-card">
+        <div class="progress-meta">
+          <span id="stepText">1 / 8</span>
+          <span id="nameText">손님</span>
+        </div>
+        <div class="progress"><div class="bar" id="progressBar"></div></div>
+        <h2 class="question" id="questionText"></h2>
+        <div class="answers" id="answers"></div>
+      </div>
+    </section>
+
+    <section class="screen" id="resultScreen">
+      <div class="selected-cover" id="resultCover" aria-hidden="true">
+        <div class="floating a">RESULT</div>
+        <div class="floating b">TYPE</div>
+        <div class="face"></div>
+      </div>
+      <div class="result-card">
+        <div class="badge" id="resultCode">TYPE</div>
+        <h2 id="resultTitle"></h2>
+        <p class="lead" id="resultDescription"></p>
+        <div class="traits" id="traits"></div>
+        <div class="actions">
+          <button class="primary" id="shareButton">결과 복사</button>
+          <button class="ghost" id="restartButton">다른 테스트</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const baseQuestions = [
+      {
+        text: "약속 없는 토요일 아침, 제일 먼저 끌리는 건?",
+        answers: [
+          { text: "바깥 공기 쐬러 즉흥 산책", scores: { spark: 2, wave: 1 } },
+          { text: "이불 속에서 조용히 충전", scores: { moon: 2, moss: 1 } },
+          { text: "오늘 할 일 리스트부터 정리", scores: { anchor: 2, lens: 1 } },
+          { text: "친구에게 뭐 하는지 연락", scores: { comet: 2, spark: 1 } }
+        ]
+      },
+      {
+        text: "새로운 걸 시작할 때 나는?",
+        answers: [
+          { text: "공략과 시스템을 먼저 파악한다", scores: { lens: 2, anchor: 1 } },
+          { text: "일단 눌러보며 몸으로 배운다", scores: { spark: 2, comet: 1 } },
+          { text: "분위기와 캐릭터에 먼저 빠진다", scores: { moon: 2, wave: 1 } },
+          { text: "친구랑 같이 해야 더 재밌다", scores: { comet: 2, moss: 1 } }
+        ]
+      },
+      {
+        text: "친구가 고민을 털어놓으면?",
+        answers: [
+          { text: "해결 방법을 차근차근 같이 찾는다", scores: { anchor: 2, lens: 1 } },
+          { text: "먼저 감정을 충분히 들어준다", scores: { moss: 2, moon: 1 } },
+          { text: "분위기를 풀어주고 웃게 만든다", scores: { comet: 2, spark: 1 } },
+          { text: "혼자 생각할 시간을 존중한다", scores: { moon: 2, lens: 1 } }
+        ]
+      },
+      {
+        text: "칭찬을 들을 때 제일 좋은 말은?",
+        answers: [
+          { text: "너 진짜 든든하다", scores: { anchor: 2 } },
+          { text: "너랑 있으면 재밌다", scores: { comet: 2 } },
+          { text: "생각이 깊다", scores: { lens: 2, moon: 1 } },
+          { text: "마음이 편해진다", scores: { moss: 2, wave: 1 } }
+        ]
+      },
+      {
+        text: "요즘 나에게 필요한 에너지는?",
+        answers: [
+          { text: "새로운 자극", scores: { spark: 2 } },
+          { text: "흔들리지 않는 루틴", scores: { anchor: 2 } },
+          { text: "감성적인 몰입", scores: { moon: 2 } },
+          { text: "편안한 연결감", scores: { moss: 2, comet: 1 } }
+        ]
+      }
+    ];
+
+    const testData = [
+      {
+        id: "planet",
+        title: "나의 취향 행성 찾기",
+        desc: "요즘 끌리는 선택으로 내 성격의 온도와 리듬을 찾아봐요.",
+        meta: "8문항 · 성격",
+        tags: ["성격", "취향", "공유각"],
+        cover: "linear-gradient(145deg, #ffd7e8 0%, #cfc8ff 45%, #aee8ff 100%)",
+        cheek: "#ff83b7",
+        words: ["LOVE", "MOOD"],
+        questions: baseQuestions,
+        results: {
+          spark: ["번뜩이는 탐험가", "새로운 장면을 만나면 눈이 먼저 반짝입니다. 완벽한 계획보다 살아 움직이는 가능성에 강해요.", ["즉흥력", "호기심", "시작 에너지"]],
+          anchor: ["흔들림 없는 설계자", "복잡한 상황에서도 중심을 잡고 일을 현실로 끌고 옵니다. 함께하면 속도가 차분하게 붙어요.", ["계획력", "책임감", "현실 감각"]],
+          moon: ["고요한 감성 수집가", "작은 분위기와 미묘한 감정을 잘 포착합니다. 취향에 자기만의 결이 있어요.", ["감수성", "몰입", "취향 깊이"]],
+          comet: ["분위기를 여는 혜성", "사람들이 어색해하는 순간에 자연스럽게 온도를 올립니다. 함께할 때 더 빛나요.", ["친화력", "유머", "표현력"]],
+          lens: ["정밀한 관찰자", "겉으로 보이는 것보다 구조와 원리를 궁금해합니다. 판단에 신뢰감이 있어요.", ["분석력", "관찰력", "집중"]],
+          moss: ["포근한 균형 조율자", "사람과 공간의 온도를 부드럽게 맞춥니다. 주변을 안정시키는 힘이 있어요.", ["공감", "배려", "균형감"]],
+          wave: ["흐름을 타는 자유인", "상황의 리듬을 잘 읽고 유연하게 움직입니다. 자연스러운 흐름 속에서 좋은 선택을 찾아요.", ["유연함", "직감", "적응력"]]
+        }
+      },
+      {
+        id: "love",
+        title: "내 연애 온도 테스트",
+        desc: "좋아할 때 내가 뜨거운지, 따뜻한지, 조용한지 알아봐요.",
+        meta: "6문항 · 연애",
+        tags: ["연애", "케미", "밸런스"],
+        cover: "linear-gradient(145deg, #ffe1ed 0%, #ffb4d1 45%, #ffd7a8 100%)",
+        cheek: "#ff6fa5",
+        words: ["LOVE", "HEART"],
+        questions: [
+          {
+            text: "썸 상대에게 답장이 늦게 오면?",
+            answers: [
+              { text: "괜찮은 척하지만 계속 확인한다", scores: { moon: 2 } },
+              { text: "바쁜가 보다 하고 내 할 일을 한다", scores: { anchor: 2, wave: 1 } },
+              { text: "재밌는 말로 다시 톡을 건다", scores: { comet: 2 } },
+              { text: "느낌이 식기 전에 바로 물어본다", scores: { spark: 2 } }
+            ]
+          },
+          {
+            text: "고백을 받는다면 제일 설레는 방식은?",
+            answers: [
+              { text: "진심이 담긴 긴 편지", scores: { moon: 2 } },
+              { text: "담백하고 확실한 한마디", scores: { anchor: 2 } },
+              { text: "웃다가 자연스럽게 나오는 고백", scores: { comet: 2 } },
+              { text: "생각도 못 한 깜짝 이벤트", scores: { spark: 2, wave: 1 } }
+            ]
+          },
+          {
+            text: "연애 초반 내가 가장 신경 쓰는 건?",
+            answers: [
+              { text: "서로의 연락 템포", scores: { lens: 2, anchor: 1 } },
+              { text: "대화할 때의 편안함", scores: { moss: 2 } },
+              { text: "같이 있을 때의 설렘", scores: { spark: 2 } },
+              { text: "상대의 작은 표현들", scores: { moon: 2 } }
+            ]
+          },
+          {
+            text: "관심 있는 사람이 생기면?",
+            answers: [
+              { text: "자연스럽게 말을 자주 건다", scores: { comet: 2 } },
+              { text: "혼자 조용히 오래 지켜본다", scores: { moon: 2 } },
+              { text: "타이밍을 계산해서 다가간다", scores: { lens: 2, anchor: 1 } },
+              { text: "느낌 오면 바로 표현한다", scores: { spark: 2, wave: 1 } }
+            ]
+          },
+          {
+            text: "데이트에서 더 중요한 건?",
+            answers: [
+              { text: "편안하게 오래 대화하기", scores: { moss: 2 } },
+              { text: "새롭고 기억나는 경험", scores: { spark: 2 } },
+              { text: "상대가 좋아할 만한 코스", scores: { anchor: 2 } },
+              { text: "분위기와 감정의 흐름", scores: { moon: 2, wave: 1 } }
+            ]
+          },
+          {
+            text: "다툰 뒤 화해할 때 나는?",
+            answers: [
+              { text: "문제 원인을 정리해서 말한다", scores: { lens: 2 } },
+              { text: "먼저 분위기를 풀어본다", scores: { comet: 2 } },
+              { text: "시간을 두고 감정을 가라앉힌다", scores: { moon: 2 } },
+              { text: "다음엔 어떻게 할지 약속한다", scores: { anchor: 2, moss: 1 } }
+            ]
+          }
+        ],
+        results: {
+          spark: ["직진 불꽃형", "좋아하는 마음이 생기면 숨기기보다 반짝 보여주는 타입이에요.", ["표현", "설렘", "속도감"]],
+          anchor: ["든든한 약속형", "관계를 가볍게 흘려보내지 않고 안정적으로 쌓아가는 타입이에요.", ["신뢰", "책임", "꾸준함"]],
+          moon: ["은은한 달빛형", "마음이 깊어질수록 조용히 오래 빛나는 타입이에요.", ["감성", "깊이", "여운"]],
+          comet: ["장난꾸러기 케미형", "함께 웃는 순간 속에서 호감이 커지는 타입이에요.", ["유쾌함", "대화", "케미"]],
+          lens: ["관찰하는 신중형", "상대의 말과 행동을 섬세하게 보고 마음을 정리하는 타입이에요.", ["관찰", "신중", "진심"]],
+          moss: ["포근한 안정형", "편안함과 배려로 관계의 온도를 맞추는 타입이에요.", ["배려", "안정", "다정함"]],
+          wave: ["자연스러운 흐름형", "억지로 밀어붙이기보다 서로의 리듬이 맞는 순간을 좋아해요.", ["자연스러움", "리듬", "여유"]]
+        }
+      },
+      {
+        id: "stress",
+        title: "스트레스 방어 모드",
+        desc: "멘탈이 흔들릴 때 내가 어떤 방식으로 버티는지 확인해요.",
+        meta: "5문항 · 멘탈",
+        tags: ["멘탈", "회복", "공감"],
+        cover: "linear-gradient(145deg, #dff7ff 0%, #d8ccff 48%, #e9ffe9 100%)",
+        cheek: "#72debd",
+        words: ["REST", "CARE"],
+        questions: [
+          {
+            text: "갑자기 일이 몰리면?",
+            answers: [
+              { text: "우선순위를 적고 하나씩 지운다", scores: { anchor: 2 } },
+              { text: "가장 쉬운 것부터 시작해 시동을 건다", scores: { wave: 2 } },
+              { text: "왜 이렇게 됐는지 원인부터 본다", scores: { lens: 2 } },
+              { text: "잠깐 환기하고 기분을 바꾼다", scores: { spark: 2 } }
+            ]
+          },
+          {
+            text: "기분이 가라앉을 때 제일 필요한 건?",
+            answers: [
+              { text: "혼자 있을 조용한 공간", scores: { moon: 2 } },
+              { text: "괜찮다고 해주는 사람", scores: { moss: 2 } },
+              { text: "생각을 멈추게 하는 활동", scores: { spark: 2 } },
+              { text: "상황을 객관적으로 보는 시간", scores: { lens: 2 } }
+            ]
+          },
+          {
+            text: "스트레스 받은 날 밤에는?",
+            answers: [
+              { text: "내일 계획을 세워야 잠이 온다", scores: { anchor: 2 } },
+              { text: "영상이나 음악으로 머리를 비운다", scores: { wave: 2 } },
+              { text: "친구에게 오늘 일을 털어놓는다", scores: { comet: 2 } },
+              { text: "일기처럼 감정을 정리한다", scores: { moon: 2 } }
+            ]
+          },
+          {
+            text: "누가 나를 재촉하면?",
+            answers: [
+              { text: "속으로 더 꼼꼼히 확인한다", scores: { lens: 2 } },
+              { text: "일단 속도를 맞춰본다", scores: { wave: 2 } },
+              { text: "기준과 마감부터 다시 묻는다", scores: { anchor: 2 } },
+              { text: "분위기 상하지 않게 부드럽게 말한다", scores: { moss: 2 } }
+            ]
+          },
+          {
+            text: "머리가 복잡할 때 제일 먼저 하는 건?",
+            answers: [
+              { text: "해야 할 일을 작게 쪼갠다", scores: { anchor: 2 } },
+              { text: "잠깐 사라져서 혼자 쉰다", scores: { moon: 2 } },
+              { text: "친구에게 말하면서 푼다", scores: { comet: 2 } },
+              { text: "산책이나 음악으로 흐름을 바꾼다", scores: { wave: 2, moss: 1 } }
+            ]
+          }
+        ],
+        results: {
+          spark: ["전환 스위치형", "새로운 자극으로 기분의 방향을 바꾸며 회복하는 타입이에요.", ["전환", "자극", "회복"]],
+          anchor: ["체크리스트 방어형", "문제를 작게 나눠 통제감을 되찾을 때 가장 안정돼요.", ["정리", "루틴", "통제감"]],
+          moon: ["잠수 충전형", "혼자만의 조용한 시간이 있어야 마음이 다시 차오르는 타입이에요.", ["고요함", "휴식", "내면"]],
+          comet: ["수다 배출형", "말하면서 감정을 정리하고 사람의 온도로 회복해요.", ["대화", "공유", "활력"]],
+          lens: ["원인 분석형", "불편함의 이유를 정확히 알 때 마음이 놓이는 타입이에요.", ["분석", "파악", "정확함"]],
+          moss: ["포근한 회복형", "무리하지 않는 환경과 다정한 루틴에서 다시 힘을 얻어요.", ["돌봄", "안정", "온기"]],
+          wave: ["흘려보내기형", "붙잡기보다 움직이고 흘려보내며 균형을 찾는 타입이에요.", ["유연함", "산책", "전환"]]
+        }
+      },
+      {
+        id: "game",
+        title: "나의 게임 플레이 타입",
+        desc: "같은 게임을 해도 왜 플레이 방식이 다른지 알려줘요.",
+        meta: "5문항 · 게임",
+        tags: ["게임", "플레이", "친구비교"],
+        cover: "linear-gradient(145deg, #cce9ff 0%, #b8c7ff 50%, #fff2a8 100%)",
+        cheek: "#68b8ff",
+        words: ["PLAY", "WIN"],
+        questions: [
+          {
+            text: "처음 보는 보스전을 만났을 때?",
+            answers: [
+              { text: "패턴을 몇 번 관찰하고 들어간다", scores: { lens: 2 } },
+              { text: "일단 부딪혀서 감으로 익힌다", scores: { spark: 2 } },
+              { text: "아이템과 장비를 먼저 정비한다", scores: { anchor: 2 } },
+              { text: "친구에게 같이 해달라고 한다", scores: { comet: 2 } }
+            ]
+          },
+          {
+            text: "캐릭터를 고를 때 기준은?",
+            answers: [
+              { text: "성능과 티어", scores: { lens: 2 } },
+              { text: "외형과 세계관", scores: { moon: 2 } },
+              { text: "팀에 필요한 역할", scores: { moss: 2, anchor: 1 } },
+              { text: "재밌어 보이는 독특함", scores: { spark: 2 } }
+            ]
+          },
+          {
+            text: "파티 게임에서 나는?",
+            answers: [
+              { text: "승리 루트를 빠르게 찾는다", scores: { lens: 2 } },
+              { text: "분위기 살리는 플레이를 한다", scores: { comet: 2 } },
+              { text: "새 전략을 실험해본다", scores: { spark: 2 } },
+              { text: "팀원이 편하게 하도록 맞춘다", scores: { moss: 2 } }
+            ]
+          },
+          {
+            text: "랭크가 떨어졌을 때 반응은?",
+            answers: [
+              { text: "리플레이를 보고 원인을 찾는다", scores: { lens: 2 } },
+              { text: "잠깐 쉬고 멘탈을 회복한다", scores: { moss: 2 } },
+              { text: "다음 판으로 바로 만회한다", scores: { spark: 2 } },
+              { text: "전략을 바꿔 안정적으로 간다", scores: { anchor: 2 } }
+            ]
+          },
+          {
+            text: "친구와 협동 게임을 하면?",
+            answers: [
+              { text: "자연스럽게 오더를 맡는다", scores: { anchor: 2 } },
+              { text: "분위기 담당이 된다", scores: { comet: 2 } },
+              { text: "뒤에서 필요한 걸 챙긴다", scores: { moss: 2 } },
+              { text: "새 루트를 찾아 돌아다닌다", scores: { wave: 2, spark: 1 } }
+            ]
+          }
+        ],
+        results: {
+          spark: ["메타 파괴 실험가", "남들이 안 하는 조합을 먼저 눌러보는 타입이에요.", ["실험", "모험", "창의"]],
+          anchor: ["묵직한 운영가", "천천히 굳히고 안정적으로 이기는 플레이에 강해요.", ["운영", "안정", "집중"]],
+          moon: ["세계관 몰입러", "효율보다 분위기와 캐릭터 감정선을 더 깊게 즐겨요.", ["몰입", "감상", "세계관"]],
+          comet: ["파티의 하이라이트", "이기든 지든 판을 재밌게 만드는 재능이 있어요.", ["웃김", "리액션", "케미"]],
+          lens: ["빌드 분석가", "수치와 구조를 보고 최적 루트를 찾는 데 강해요.", ["분석", "최적화", "전략"]],
+          moss: ["팀 케어 서포터", "팀의 분위기와 균형을 챙기며 오래 같이 하게 만드는 타입이에요.", ["서포트", "협력", "안정"]],
+          wave: ["흐름 타는 올라운더", "상황에 따라 역할을 바꾸며 판의 리듬을 잘 타요.", ["적응", "감각", "유연함"]]
+        }
+      },
+      {
+        id: "social",
+        title: "나의 소셜 배터리",
+        desc: "사람들과 있을 때 충전되는지, 방전되는지 귀엽게 측정해요.",
+        meta: "5문항 · 관계",
+        tags: ["친구", "에너지", "관계"],
+        cover: "linear-gradient(145deg, #ffe7a6 0%, #ffd0ef 48%, #d4f6ff 100%)",
+        cheek: "#ffe071",
+        words: ["BFF", "CHAT"],
+        questions: [
+          {
+            text: "단톡방 알림이 많이 쌓이면?",
+            answers: [
+              { text: "흐름부터 빠르게 훑고 답한다", scores: { wave: 2 } },
+              { text: "재밌는 말에 바로 끼어든다", scores: { comet: 2 } },
+              { text: "중요한 내용만 조용히 확인한다", scores: { lens: 2 } },
+              { text: "나중에 여유 있을 때 답한다", scores: { moon: 2 } }
+            ]
+          },
+          {
+            text: "새 모임에 초대받으면?",
+            answers: [
+              { text: "새 사람 만나는 게 기대된다", scores: { spark: 2, comet: 1 } },
+              { text: "누가 오는지 먼저 확인한다", scores: { lens: 2 } },
+              { text: "친한 사람이 있으면 간다", scores: { moss: 2 } },
+              { text: "컨디션 보고 결정한다", scores: { wave: 2, moon: 1 } }
+            ]
+          },
+          {
+            text: "친구 생일을 챙기는 방식은?",
+            answers: [
+              { text: "미리 준비해서 안정적으로 챙긴다", scores: { anchor: 2 } },
+              { text: "딱 취향 맞는 선물을 고른다", scores: { moon: 2, lens: 1 } },
+              { text: "웃긴 메시지와 함께 보낸다", scores: { comet: 2 } },
+              { text: "갑자기 만나서 놀라게 한다", scores: { spark: 2 } }
+            ]
+          },
+          {
+            text: "오랜만에 연락 온 친구에게?",
+            answers: [
+              { text: "반갑게 바로 대화를 이어간다", scores: { comet: 2 } },
+              { text: "무슨 일인지 차분히 묻는다", scores: { moss: 2 } },
+              { text: "상황을 보고 적당한 거리로 답한다", scores: { lens: 2 } },
+              { text: "기분 좋으면 약속까지 잡는다", scores: { spark: 2, wave: 1 } }
+            ]
+          },
+          {
+            text: "사람들과 오래 놀고 집에 오면?",
+            answers: [
+              { text: "즐거워서 또 약속 잡고 싶다", scores: { comet: 2 } },
+              { text: "혼자 쉬어야 다시 살아난다", scores: { moon: 2 } },
+              { text: "좋았던 장면을 곱씹는다", scores: { moss: 2 } },
+              { text: "컨디션에 따라 완전 다르다", scores: { wave: 2 } }
+            ]
+          }
+        ],
+        results: {
+          spark: ["초대받으면 켜지는 배터리", "새로운 사람과 장소에서 에너지가 확 켜지는 타입이에요.", ["활력", "호기심", "확장"]],
+          anchor: ["소수정예 안정 배터리", "많은 만남보다 믿을 수 있는 관계에서 오래 충전돼요.", ["신뢰", "깊이", "안정"]],
+          moon: ["혼자 충전 달빛 배터리", "좋은 사람도 좋지만 혼자만의 시간이 꼭 필요한 타입이에요.", ["혼자시간", "감성", "충전"]],
+          comet: ["대화 폭발 풀충전형", "재밌는 대화가 시작되면 에너지가 계속 차올라요.", ["수다", "리액션", "케미"]],
+          lens: ["관찰형 저전력 모드", "무리하게 나서기보다 상황을 읽으며 필요한 만큼 연결돼요.", ["관찰", "거리감", "정확함"]],
+          moss: ["편안한 온기 배터리", "부담 없는 관계와 다정한 분위기에서 가장 잘 충전돼요.", ["다정함", "편안함", "균형"]],
+          wave: ["약속 따라 출렁 배터리", "컨디션과 분위기에 따라 외향과 내향을 자연스럽게 오가요.", ["유연함", "리듬", "분위기"]]
+        }
+      }
+    ];
+
+    const screens = {
+      home: document.getElementById("homeScreen"),
+      start: document.getElementById("startScreen"),
+      quiz: document.getElementById("quizScreen"),
+      result: document.getElementById("resultScreen")
+    };
+    const testGrid = document.getElementById("testGrid");
+    const testCount = document.getElementById("testCount");
+    const selectedCover = document.getElementById("selectedCover");
+    const resultCover = document.getElementById("resultCover");
+    const coverWordA = document.getElementById("coverWordA");
+    const coverWordB = document.getElementById("coverWordB");
+    const selectedTags = document.getElementById("selectedTags");
+    const selectedTitle = document.getElementById("selectedTitle");
+    const selectedDescription = document.getElementById("selectedDescription");
+    const nameInput = document.getElementById("nameInput");
+    const startButton = document.getElementById("startButton");
+    const restartButton = document.getElementById("restartButton");
+    const shareButton = document.getElementById("shareButton");
+    const wordGameButton = document.getElementById("wordGameButton");
+    const stepText = document.getElementById("stepText");
+    const nameText = document.getElementById("nameText");
+    const progressBar = document.getElementById("progressBar");
+    const questionText = document.getElementById("questionText");
+    const answersEl = document.getElementById("answers");
+    const resultCode = document.getElementById("resultCode");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultDescription = document.getElementById("resultDescription");
+    const traits = document.getElementById("traits");
+    const toast = document.getElementById("toast");
+
+    const state = {
+      test: testData[0],
+      name: "손님",
+      index: 0,
+      scores: {},
+      result: null
+    };
+
+    function show(screenName) {
+      Object.values(screens).forEach((screen) => screen.classList.remove("active"));
+      screens[screenName].classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function renderHome() {
+      testCount.textContent = `${testData.length}개`;
+      testGrid.innerHTML = testData.map((test) => `
+        <button class="test-card" style="--cover:${test.cover};--cheek:${test.cheek}" data-id="${test.id}">
+          <div class="thumb">
+            <div class="floating a">${test.words[0]}</div>
+            <div class="floating b">${test.words[1]}</div>
+            <div class="face"></div>
+          </div>
+          <div class="card-body">
+            <strong>${test.title}</strong>
+            <span>${test.meta}</span>
+          </div>
+        </button>
+      `).join("");
+      testGrid.querySelectorAll(".test-card").forEach((card) => {
+        card.addEventListener("click", () => selectTest(card.dataset.id));
+      });
+    }
+
+    function selectTest(id) {
+      state.test = testData.find((test) => test.id === id) || testData[0];
+      selectedCover.style.setProperty("--cover", state.test.cover);
+      selectedCover.style.setProperty("--cheek", state.test.cheek);
+      resultCover.style.setProperty("--cover", state.test.cover);
+      resultCover.style.setProperty("--cheek", state.test.cheek);
+      coverWordA.textContent = state.test.words[0];
+      coverWordB.textContent = state.test.words[1];
+      selectedTags.innerHTML = state.test.tags.map((tag) => `<span class="tag">${tag}</span>`).join("");
+      selectedTitle.textContent = state.test.title;
+      selectedDescription.textContent = state.test.desc;
+      show("start");
+    }
+
+    function start() {
+      state.name = nameInput.value.trim().slice(0, 14) || "손님";
+      state.index = 0;
+      state.scores = {};
+      state.result = null;
+      nameText.textContent = state.name;
+      show("quiz");
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      const question = state.test.questions[state.index];
+      stepText.textContent = `${state.index + 1} / ${state.test.questions.length}`;
+      progressBar.style.width = `${(state.index / state.test.questions.length) * 100}%`;
+      questionText.textContent = question.text;
+      answersEl.innerHTML = "";
+      question.answers.forEach((answer) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "answer";
+        button.textContent = answer.text;
+        button.addEventListener("click", () => choose(answer));
+        answersEl.append(button);
+      });
+    }
+
+    function choose(answer) {
+      Object.entries(answer.scores).forEach(([key, value]) => {
+        state.scores[key] = (state.scores[key] || 0) + value;
+      });
+      state.index += 1;
+      if (state.index >= state.test.questions.length) {
+        progressBar.style.width = "100%";
+        finish();
+      } else {
+        renderQuestion();
+      }
+    }
+
+    function finish() {
+      const winner = Object.keys(state.test.results).sort((a, b) => (state.scores[b] || 0) - (state.scores[a] || 0))[0] || Object.keys(state.test.results)[0];
+      const [title, desc, tags] = state.test.results[winner];
+      state.result = { code: winner.toUpperCase(), title, desc, tags };
+      resultCode.textContent = `${state.name} · ${state.result.code}`;
+      resultTitle.textContent = state.result.title;
+      resultDescription.textContent = state.result.desc;
+      traits.innerHTML = state.result.tags.map((trait) => `<span class="trait">${trait}</span>`).join("");
+      show("result");
+    }
+
+    function restart() {
+      show("home");
+    }
+
+    async function share() {
+      if (!state.result) return;
+      const text = `${state.name}님의 ${state.test.title} 결과는 ${state.result.title}\n${state.result.desc}\n${location.href}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("결과를 복사했어요");
+      } catch {
+        showToast("복사 권한이 필요해요");
+      }
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 1100);
+    }
+
+    startButton.addEventListener("click", start);
+    nameInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") start();
+    });
+    restartButton.addEventListener("click", restart);
+    shareButton.addEventListener("click", share);
+    wordGameButton.addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+
+    renderHome();
+  </script>
+</body>
+</html>

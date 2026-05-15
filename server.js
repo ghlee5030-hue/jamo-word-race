@@ -142,9 +142,17 @@ async function handleApi(req, res, pathname) {
 
     if (pathname === "/api/join") {
       const room = requireRoom(body.room);
+      const name = cleanName(body.name);
+      const existingPlayer = room.players.get(String(body.playerId || ""));
+      if (existingPlayer && existingPlayer.name === name) {
+        sendJson(res, 200, { room: room.code, playerId: existingPlayer.id, state: publicState(room) });
+        return;
+      }
+      const duplicateName = [...room.players.values()].some((player) => player.name === name);
+      if (duplicateName) throw new Error("이미 같은 닉네임이 이 방에 있어요");
       if (room.players.size >= 5) throw new Error("방은 최대 5명까지 입장할 수 있어요");
       if (room.started) throw new Error("이미 시작한 방입니다");
-      const player = { id: makePlayerId(), name: cleanName(body.name), ready: false, result: "", tries: 0, finishedAt: 0 };
+      const player = { id: makePlayerId(), name, ready: false, result: "", tries: 0, finishedAt: 0 };
       room.players.set(player.id, player);
       broadcastState(room);
       sendJson(res, 200, { room: room.code, playerId: player.id, state: publicState(room) });
@@ -165,7 +173,7 @@ async function handleApi(req, res, pathname) {
       const room = requireRoom(body.room);
       requirePlayer(room, body.playerId);
       if (room.hostId !== body.playerId) throw new Error("방장만 시작할 수 있어요");
-      if (room.players.size < 3) throw new Error("3명 이상 모여야 시작할 수 있어요");
+      if (room.players.size < 2) throw new Error("2명 이상 모이면 시작할 수 있어요");
       if (room.players.size > 5) throw new Error("최대 5명까지 플레이할 수 있어요");
       const everyoneReady = [...room.players.values()].every((player) => player.ready || player.id === room.hostId);
       if (!everyoneReady) throw new Error("아직 준비하지 않은 사람이 있어요");

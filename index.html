@@ -722,6 +722,7 @@
 
     const STORAGE_KEY = "jamo-word-game-profile";
     const STATS_KEY = "jamo-word-game-stats";
+    const ROOM_SESSION_KEY = "jamo-word-game-room-session";
     const MAX_GUESSES = 5;
 
     const state = {
@@ -1051,6 +1052,28 @@
       return url.toString();
     }
 
+    function getSavedRoomSession(room) {
+      try {
+        const session = JSON.parse(localStorage.getItem(ROOM_SESSION_KEY)) || {};
+        if (session.room === room && session.name === state.nickname) return session;
+      } catch {
+        return null;
+      }
+      return null;
+    }
+
+    function saveRoomSession() {
+      localStorage.setItem(ROOM_SESSION_KEY, JSON.stringify({
+        room: roomState.room,
+        playerId: roomState.playerId,
+        name: state.nickname
+      }));
+    }
+
+    function clearRoomSession() {
+      localStorage.removeItem(ROOM_SESSION_KEY);
+    }
+
     async function copyShareLink() {
       const text = `오늘의 낱자 같이 해보자!\n${getShareUrl()}`;
       try {
@@ -1118,7 +1141,12 @@
         return;
       }
       try {
-        const data = await apiPost("/api/join", { room: code, name: state.nickname });
+        const savedSession = getSavedRoomSession(code);
+        const data = await apiPost("/api/join", {
+          room: code,
+          name: state.nickname,
+          playerId: savedSession?.playerId || ""
+        });
         enterRoom(data);
         showToast(`${code} 방에 입장했어요`);
       } catch (error) {
@@ -1132,6 +1160,7 @@
       roomState.joined = true;
       roomState.started = false;
       roomCodeInput.value = data.room;
+      saveRoomSession();
       connectRoomEvents();
       updateRoomView(data.state);
       history.replaceState(null, "", roomUrl(data.room));
@@ -1175,7 +1204,7 @@
       startRoomButton.hidden = !isHost;
       leaveRoomButton.hidden = false;
       readyButton.textContent = me?.ready ? "준비 완료" : "준비";
-      startRoomButton.disabled = !isHost || count < 3 || count > 5 || roomState.started;
+      startRoomButton.disabled = !isHost || count < 2 || count > 5 || roomState.started;
     }
 
     function escapeHtml(text) {
@@ -1245,6 +1274,7 @@
       readyButton.hidden = true;
       startRoomButton.hidden = true;
       leaveRoomButton.hidden = true;
+      clearRoomSession();
       history.replaceState(null, "", getShareUrl());
       reset();
     }
