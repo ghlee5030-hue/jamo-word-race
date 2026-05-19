@@ -1281,10 +1281,16 @@
 
     function updateRoomView(data) {
       if (!data) return;
+      const wasStarted = roomState.started;
       roomState.hostId = data.hostId;
       roomState.started = data.started;
       roomState.endsAt = data.endsAt || 0;
       roomState.players = data.players || [];
+      if (wasStarted && !roomState.started) {
+        stopRoundTimer();
+        roomState.endsAt = 0;
+        readyForNextRound();
+      }
       const me = roomState.players.find((player) => player.id === roomState.playerId);
       const isHost = roomState.hostId === roomState.playerId;
       const count = roomState.players.length;
@@ -1347,11 +1353,14 @@
       state.done = true;
       resultPanel.hidden = true;
       countdownOverlay.hidden = false;
+      countdownOverlay.textContent = "3";
       if (roomState.countdownTimer) window.clearInterval(roomState.countdownTimer);
+      const localStart = Date.now();
       roomState.countdownTimer = window.setInterval(() => {
-        const remaining = Math.max(0, Math.ceil((startsAt - Date.now()) / 1000));
-        countdownOverlay.textContent = remaining || "시작!";
-        if (remaining <= 0) {
+        const elapsed = Date.now() - localStart;
+        const remaining = 3 - Math.floor(elapsed / 1000);
+        countdownOverlay.textContent = remaining > 0 ? String(remaining) : "시작!";
+        if (elapsed >= 3300) {
           window.clearInterval(roomState.countdownTimer);
           roomState.countdownTimer = null;
         }
@@ -1384,6 +1393,27 @@
         }
         updateRoomView({ hostId: roomState.hostId, started: roomState.started, endsAt: roomState.endsAt, players: roomState.players });
       }, 500);
+    }
+
+    function stopRoundTimer() {
+      if (roomState.roundTimer) {
+        window.clearInterval(roomState.roundTimer);
+        roomState.roundTimer = null;
+      }
+      roomState.endsAt = 0;
+    }
+
+    function readyForNextRound() {
+      state.done = true;
+      state.checking = false;
+      roomState.endsAt = 0;
+      countdownOverlay.hidden = true;
+      roomStatus.innerHTML = `방 ${roomState.room} · ${roomState.players.length}/5명`;
+      chatBox.hidden = false;
+      chatInput.disabled = false;
+      chatSendButton.disabled = false;
+      readyButton.hidden = false;
+      showToast("방 대기 상태로 돌아왔어요");
     }
 
     function formatTimeLeft(endsAt) {
@@ -1423,6 +1453,15 @@
         });
       } catch {
         // Local result already recorded; room state will recover on the next event.
+      }
+    }
+
+    function closeResultToRoom() {
+      resultPanel.hidden = true;
+      if (roomState.joined) {
+        readyForNextRound();
+      } else {
+        reset();
       }
     }
 
@@ -1673,8 +1712,15 @@
     document.getElementById("closeHelpButton").addEventListener("click", () => {
       helpPanel.hidden = true;
     });
-    document.getElementById("newButton").addEventListener("click", reset);
-    document.getElementById("againButton").addEventListener("click", reset);
+    document.getElementById("newButton").addEventListener("click", () => {
+      if (roomState.joined) {
+        resultPanel.hidden = true;
+        readyForNextRound();
+      } else {
+        reset();
+      }
+    });
+    document.getElementById("againButton").addEventListener("click", closeResultToRoom);
     document.getElementById("shareButton").addEventListener("click", copyResult);
     document.getElementById("copyLinkButton").addEventListener("click", copyShareLink);
     document.getElementById("changeNameButton").addEventListener("click", openProfilePanel);

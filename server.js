@@ -117,6 +117,9 @@ function finishTimedOutPlayers(room) {
   room.endsAt = 0;
   room.timer = null;
   room.countdownTimer = null;
+  for (const player of room.players.values()) {
+    player.ready = player.id === room.hostId;
+  }
   broadcast(room, { type: "timeout", state: publicState(room) });
 }
 
@@ -243,7 +246,12 @@ async function handleApi(req, res, pathname) {
         room.countdownUntil = 0;
         room.endsAt = 0;
         if (room.timer) clearTimeout(room.timer);
+        if (room.countdownTimer) clearTimeout(room.countdownTimer);
         room.timer = null;
+        room.countdownTimer = null;
+        for (const item of room.players.values()) {
+          item.ready = item.id === room.hostId;
+        }
       }
       broadcastState(room);
       sendJson(res, 200, { ok: true });
