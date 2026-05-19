@@ -5,6 +5,8 @@ const crypto = require("crypto");
 
 const root = __dirname;
 const rooms = new Map();
+const COUNTDOWN_MS = 3000;
+const ROUND_MS = 210000;
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -71,6 +73,8 @@ function publicState(room) {
     code: room.code,
     hostId: room.hostId,
     started: room.started,
+    countdownUntil: room.countdownUntil,
+    endsAt: room.endsAt,
     players: [...room.players.values()].map((player) => ({
       id: player.id,
       name: player.name,
@@ -96,6 +100,24 @@ function broadcast(room, message) {
 
 function broadcastState(room) {
   broadcast(room, { type: "state", state: publicState(room) });
+}
+
+function finishTimedOutPlayers(room) {
+  if (!room.started) return;
+  const now = Date.now();
+  for (const player of room.players.values()) {
+    if (!player.result) {
+      player.result = "loss";
+      player.tries = 0;
+      player.finishedAt = now;
+    }
+  }
+  room.started = false;
+  room.countdownUntil = 0;
+  room.endsAt = 0;
+  room.timer = null;
+  room.countdownTimer = null;
+  broadcast(room, { type: "timeout", state: publicState(room) });
 }
 
 function requireRoom(code) {
@@ -133,7 +155,12 @@ async function handleApi(req, res, pathname) {
         clients: new Set(),
         started: false,
         answer: null,
-        previousWord: ""
+        previousWord: "",
+        countdownUntil: 0,
+        endsAt: 0,
+        timer: null,
+        countdownTimer: null,
+        chat: []
       };
       rooms.set(code, room);
       sendJson(res, 200, { room: code, playerId: player.id, state: publicState(room) });
@@ -151,7 +178,7 @@ async function handleApi(req, res, pathname) {
       const duplicateName = [...room.players.values()].some((player) => player.name === name);
       if (duplicateName) throw new Error("이미 같은 닉네임이 이 방에 있어요");
       if (room.players.size >= 5) throw new Error("방은 최대 5명까지 입장할 수 있어요");
-      if (room.started) throw new Error("이미 시작한 방입니다");
+      if (room.started || room.countdownUntil) throw new Error("이미 시작한 방입니다");
       const player = { id: makePlayerId(), name, ready: false, result: "", tries: 0, finishedAt: 0 };
       room.players.set(player.id, player);
       broadcastState(room);
@@ -162,14 +189,14 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/ready") {
       const room = requireRoom(body.room);
       const player = requirePlayer(room, body.playerId);
-      if (room.started) throw new Error("이미 시작했어요");
+      if (room.started || room.countdownUntil) throw new Error("이미 시작했어요");
       player.ready = !player.ready;
       broadcastState(room);
       sendJson(res, 200, { ok: true });
       return;
     }
 
-    if (pathname === "/api/start") {
+      if (pathname === "/api/start") {
       const room = requireRoom(body.room);
       requirePlayer(room, body.playerId);
       if (room.hostId !== body.playerId) throw new Error("방장만 시작할 수 있어요");
@@ -179,13 +206,24 @@ async function handleApi(req, res, pathname) {
       if (!everyoneReady) throw new Error("아직 준비하지 않은 사람이 있어요");
       room.answer = pickAnswer(room.previousWord);
       room.previousWord = room.answer.word;
-      room.started = true;
+      room.started = false;
+      room.countdownUntil = Date.now() + COUNTDOWN_MS;
+      room.endsAt = room.countdownUntil + ROUND_MS;
       for (const player of room.players.values()) {
         player.result = "";
         player.tries = 0;
         player.finishedAt = 0;
       }
-      broadcast(room, { type: "start", answer: room.answer, state: publicState(room) });
+      if (room.countdownTimer) clearTimeout(room.countdownTimer);
+      if (room.timer) clearTimeout(room.timer);
+      broadcast(room, { type: "countdown", answer: room.answer, startsAt: room.countdownUntil, state: publicState(room) });
+      room.countdownTimer = setTimeout(() => {
+        room.started = true;
+        broadcast(room, { type: "start", answer: room.answer, endsAt: room.endsAt, state: publicState(room) });
+      }, COUNTDOWN_MS);
+      room.timer = setTimeout(() => {
+        finishTimedOutPlayers(room);
+      }, COUNTDOWN_MS + ROUND_MS);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -199,7 +237,29 @@ async function handleApi(req, res, pathname) {
         player.tries = Number(body.tries) || 0;
         player.finishedAt = Date.now();
       }
+      const everyoneFinished = [...room.players.values()].every((item) => item.result);
+      if (everyoneFinished) {
+        room.started = false;
+        room.countdownUntil = 0;
+        room.endsAt = 0;
+        if (room.timer) clearTimeout(room.timer);
+        room.timer = null;
+      }
       broadcastState(room);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/chat") {
+      const room = requireRoom(body.room);
+      const player = requirePlayer(room, body.playerId);
+      if (room.started || room.countdownUntil) throw new Error("채팅은 시작 전에만 가능해요");
+      const text = String(body.text || "").trim().slice(0, 120);
+      if (!text) throw new Error("메시지를 입력하세요");
+      const message = { id: makePlayerId(), name: player.name, text, at: Date.now() };
+      room.chat.push(message);
+      room.chat = room.chat.slice(-30);
+      broadcast(room, { type: "chat", message });
       sendJson(res, 200, { ok: true });
       return;
     }

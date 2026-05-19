@@ -211,6 +211,76 @@
       outline: 0;
     }
 
+    .chat-box {
+      display: grid;
+      gap: 7px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 10px;
+    }
+
+    .chat-box[hidden] {
+      display: none;
+    }
+
+    .chat-log {
+      display: grid;
+      gap: 5px;
+      max-height: 120px;
+      overflow: auto;
+      font-size: 13px;
+    }
+
+    .chat-message {
+      color: #dbe3e9;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .chat-message strong {
+      color: var(--ink);
+    }
+
+    .chat-form {
+      display: flex;
+      gap: 6px;
+    }
+
+    .chat-input {
+      min-width: 0;
+      flex: 1;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      color: var(--ink);
+      background: var(--panel-2);
+      font: inherit;
+      outline: 0;
+    }
+
+    .round-timer {
+      color: var(--gold);
+      font-weight: 950;
+    }
+
+    .countdown {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background: rgba(7, 10, 13, 0.72);
+      backdrop-filter: blur(8px);
+      color: var(--ink);
+      font-size: clamp(92px, 28vw, 180px);
+      font-weight: 950;
+      pointer-events: none;
+    }
+
+    .countdown[hidden] {
+      display: none;
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -536,6 +606,13 @@
           <button class="mini-button" id="leaveRoomButton" hidden>나가기</button>
         </div>
         <div class="room-list" id="roomPlayers" hidden></div>
+        <div class="chat-box" id="chatBox" hidden>
+          <div class="chat-log" id="chatLog"></div>
+          <div class="chat-form">
+            <input class="chat-input" id="chatInput" maxlength="120" placeholder="시작 전 채팅">
+            <button class="mini-button" id="chatSendButton">전송</button>
+          </div>
+        </div>
       </div>
       <div class="stats" aria-label="플레이어 전적">
         <div class="stat"><strong id="statWins">0</strong><span>승</span></div>
@@ -600,6 +677,8 @@
     </div>
   </section>
 
+  <div class="countdown" id="countdownOverlay" hidden>3</div>
+
   <script>
     const ANSWERS = [
       { word: "의자", jamo: ["ㅇ", "ㅡ", "ㅣ", "ㅈ", "ㅏ"] },
@@ -647,7 +726,7 @@
     ];
 
     const KEY_ROWS = [
-      ["ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ", "ㅛ", "ㅕ", "ㅑ", "ㅐ", "ㅔ"],
+      ["ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ", "ㅛ", "ㅕ", "ㅑ"],
       ["ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ"],
       ["⌫", "ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ", "입력"]
     ];
@@ -719,6 +798,11 @@
     const readyButton = document.getElementById("readyButton");
     const startRoomButton = document.getElementById("startRoomButton");
     const leaveRoomButton = document.getElementById("leaveRoomButton");
+    const chatBox = document.getElementById("chatBox");
+    const chatLog = document.getElementById("chatLog");
+    const chatInput = document.getElementById("chatInput");
+    const chatSendButton = document.getElementById("chatSendButton");
+    const countdownOverlay = document.getElementById("countdownOverlay");
 
     const STORAGE_KEY = "jamo-word-game-profile";
     const STATS_KEY = "jamo-word-game-stats";
@@ -744,7 +828,10 @@
       joined: false,
       started: false,
       eventSource: null,
-      players: []
+      players: [],
+      endsAt: 0,
+      countdownTimer: null,
+      roundTimer: null
     };
 
     function pickAnswer(previousWord = "") {
@@ -1182,7 +1269,10 @@
       roomState.eventSource.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === "state") updateRoomView(message.state);
+        if (message.type === "countdown") beginCountdown(message.answer, message.startsAt, message.state);
         if (message.type === "start") startSharedGame(message.answer, message.state);
+        if (message.type === "timeout") handleRoomTimeout(message.state);
+        if (message.type === "chat") addChatMessage(message.message);
       };
       roomState.eventSource.onerror = () => {
         roomStatus.textContent = "연결 재시도 중";
@@ -1193,11 +1283,13 @@
       if (!data) return;
       roomState.hostId = data.hostId;
       roomState.started = data.started;
+      roomState.endsAt = data.endsAt || 0;
       roomState.players = data.players || [];
       const me = roomState.players.find((player) => player.id === roomState.playerId);
       const isHost = roomState.hostId === roomState.playerId;
       const count = roomState.players.length;
-      roomStatus.textContent = `방 ${roomState.room} · ${count}/5명`;
+      const timerText = roomState.started && roomState.endsAt ? ` · ${formatTimeLeft(roomState.endsAt)}` : "";
+      roomStatus.innerHTML = `방 ${roomState.room} · ${count}/5명<span class="round-timer">${timerText}</span>`;
       roomPlayers.hidden = false;
       roomPlayers.innerHTML = roomState.players.map((player) => {
         const marks = [
@@ -1215,6 +1307,10 @@
       leaveRoomButton.hidden = false;
       readyButton.textContent = me?.ready ? "준비 완료" : "준비";
       startRoomButton.disabled = !isHost || count < 2 || count > 5 || roomState.started;
+      chatBox.hidden = roomState.started || Boolean(data.countdownUntil);
+      chatInput.disabled = chatBox.hidden;
+      chatSendButton.disabled = chatBox.hidden;
+      if (roomState.started) startRoundTimer();
     }
 
     function escapeHtml(text) {
@@ -1245,12 +1341,75 @@
       }
     }
 
+    function beginCountdown(answer, startsAt, data) {
+      updateRoomView(data);
+      reset(answer);
+      state.done = true;
+      resultPanel.hidden = true;
+      countdownOverlay.hidden = false;
+      if (roomState.countdownTimer) window.clearInterval(roomState.countdownTimer);
+      roomState.countdownTimer = window.setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((startsAt - Date.now()) / 1000));
+        countdownOverlay.textContent = remaining || "시작!";
+        if (remaining <= 0) {
+          window.clearInterval(roomState.countdownTimer);
+          roomState.countdownTimer = null;
+        }
+      }, 100);
+    }
+
     function startSharedGame(answer, data) {
       roomState.started = true;
       updateRoomView(data);
       reset(answer);
       resultPanel.hidden = true;
+      countdownOverlay.hidden = true;
+      startRoundTimer();
       showToast("같은 단어로 시작!");
+    }
+
+    function startRoundTimer() {
+      if (roomState.roundTimer) window.clearInterval(roomState.roundTimer);
+      roomState.roundTimer = window.setInterval(() => {
+        if (!roomState.started || !roomState.endsAt) {
+          window.clearInterval(roomState.roundTimer);
+          roomState.roundTimer = null;
+          return;
+        }
+        const remaining = roomState.endsAt - Date.now();
+        if (remaining <= 0) {
+          window.clearInterval(roomState.roundTimer);
+          roomState.roundTimer = null;
+          handleLocalTimeout();
+        }
+        updateRoomView({ hostId: roomState.hostId, started: roomState.started, endsAt: roomState.endsAt, players: roomState.players });
+      }, 500);
+    }
+
+    function formatTimeLeft(endsAt) {
+      const seconds = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      const minutes = Math.floor(seconds / 60);
+      const rest = String(seconds % 60).padStart(2, "0");
+      return `${minutes}:${rest}`;
+    }
+
+    function handleLocalTimeout() {
+      if (state.done) return;
+      state.done = true;
+      openResult(false);
+    }
+
+    function handleRoomTimeout(data) {
+      updateRoomView(data);
+      if (!state.done) {
+        state.done = true;
+        recordGame(false);
+        resultTitle.textContent = "시간 종료!";
+        resultText.textContent = `제한시간이 끝났어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+        resultPanel.hidden = false;
+      }
+      roomState.started = false;
+      showToast("시간 종료");
     }
 
     async function sendRoomResult(won, tries) {
@@ -1275,9 +1434,15 @@
       roomState.joined = false;
       roomState.started = false;
       roomState.players = [];
+      roomState.endsAt = 0;
+      if (roomState.countdownTimer) window.clearInterval(roomState.countdownTimer);
+      if (roomState.roundTimer) window.clearInterval(roomState.roundTimer);
+      countdownOverlay.hidden = true;
       roomStatus.textContent = "혼자 하기";
       roomPlayers.hidden = true;
       roomPlayers.innerHTML = "";
+      chatLog.innerHTML = "";
+      chatBox.hidden = true;
       createRoomButton.hidden = false;
       joinRoomButton.hidden = false;
       roomCodeInput.hidden = false;
@@ -1287,6 +1452,25 @@
       clearRoomSession();
       history.replaceState(null, "", getShareUrl());
       reset();
+    }
+
+    async function sendChat() {
+      const text = chatInput.value.trim();
+      if (!text || !roomState.joined) return;
+      try {
+        await apiPost("/api/chat", { room: roomState.room, playerId: roomState.playerId, text });
+        chatInput.value = "";
+      } catch (error) {
+        showToast(error.message);
+      }
+    }
+
+    function addChatMessage(message) {
+      const row = document.createElement("div");
+      row.className = "chat-message";
+      row.innerHTML = `<strong>${escapeHtml(message.name)}</strong> ${escapeHtml(message.text)}`;
+      chatLog.append(row);
+      chatLog.scrollTop = chatLog.scrollHeight;
     }
 
     function decomposeText(text) {
@@ -1467,7 +1651,7 @@
     }
 
     document.addEventListener("keydown", (event) => {
-      if (event.target === nameInput) return;
+      if (event.target === nameInput || event.target === chatInput || event.target === roomCodeInput) return;
       if (event.key === "Enter") {
         event.preventDefault();
         submitGuess();
@@ -1500,6 +1684,10 @@
     readyButton.addEventListener("click", toggleReady);
     startRoomButton.addEventListener("click", startRoomGame);
     leaveRoomButton.addEventListener("click", leaveRoom);
+    chatSendButton.addEventListener("click", sendChat);
+    chatInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") sendChat();
+    });
     roomCodeInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinRoom();
     });
