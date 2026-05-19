@@ -123,6 +123,19 @@ function finishTimedOutPlayers(room) {
   broadcast(room, { type: "timeout", state: publicState(room) });
 }
 
+function finishRound(room) {
+  room.started = false;
+  room.countdownUntil = 0;
+  room.endsAt = 0;
+  if (room.timer) clearTimeout(room.timer);
+  if (room.countdownTimer) clearTimeout(room.countdownTimer);
+  room.timer = null;
+  room.countdownTimer = null;
+  for (const player of room.players.values()) {
+    player.ready = player.id === room.hostId;
+  }
+}
+
 function requireRoom(code) {
   const room = rooms.get(String(code || "").toUpperCase());
   if (!room) throw new Error("방을 찾을 수 없습니다");
@@ -240,18 +253,19 @@ async function handleApi(req, res, pathname) {
         player.tries = Number(body.tries) || 0;
         player.finishedAt = Date.now();
       }
-      const everyoneFinished = [...room.players.values()].every((item) => item.result);
-      if (everyoneFinished) {
-        room.started = false;
-        room.countdownUntil = 0;
-        room.endsAt = 0;
-        if (room.timer) clearTimeout(room.timer);
-        if (room.countdownTimer) clearTimeout(room.countdownTimer);
-        room.timer = null;
-        room.countdownTimer = null;
+      if (player.result === "win") {
+        const now = Date.now();
         for (const item of room.players.values()) {
-          item.ready = item.id === room.hostId;
+          if (!item.result) {
+            item.result = "loss";
+            item.tries = 0;
+            item.finishedAt = now;
+          }
         }
+        finishRound(room);
+      } else {
+        const everyoneFinished = [...room.players.values()].every((item) => item.result);
+        if (everyoneFinished) finishRound(room);
       }
       broadcastState(room);
       sendJson(res, 200, { ok: true });

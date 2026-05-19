@@ -897,6 +897,19 @@
       showToast("새 문제 시작");
     }
 
+    function clearBoardForWaiting() {
+      state.row = 0;
+      state.col = 0;
+      state.done = true;
+      state.checking = false;
+      state.recorded = false;
+      state.guesses = [];
+      state.keyRanks.clear();
+      makeBoard();
+      makeKeyboard();
+      updateTryCount();
+    }
+
     function tilesInRow(rowIndex = state.row) {
       return [...board.querySelectorAll(`[data-row="${rowIndex}"]`)];
     }
@@ -1404,8 +1417,7 @@
     }
 
     function readyForNextRound() {
-      state.done = true;
-      state.checking = false;
+      clearBoardForWaiting();
       roomState.endsAt = 0;
       countdownOverlay.hidden = true;
       roomStatus.innerHTML = `방 ${roomState.room} · ${roomState.players.length}/5명`;
