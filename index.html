@@ -281,6 +281,17 @@
       display: none;
     }
 
+    .ad-slot {
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+      width: min(100%, 520px);
+      margin: 4px auto;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -620,6 +631,13 @@
         <div class="stat"><strong id="statStreak">0</strong><span>연승</span></div>
         <div class="stat"><strong id="statRate">0%</strong><span>승률</span></div>
       </div>
+      <div class="ad-slot" aria-label="광고">
+        <span>광고</span>
+        <ins class="kakao_ad_area" style="display:none;"
+          data-ad-unit="DAN-IyjFMMsX8A0cddwc"
+          data-ad-width="320"
+          data-ad-height="100"></ins>
+      </div>
       <div class="meta">
         <span class="chip" id="tryCount">1 / 5</span>
         <span>사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
@@ -679,6 +697,7 @@
 
   <div class="countdown" id="countdownOverlay" hidden>3</div>
 
+  <script async type="text/javascript" src="https://t1.kakaocdn.net/kas/static/ba.min.js"></script>
   <script>
     const ANSWERS = [
       { word: "의자", jamo: ["ㅇ", "ㅡ", "ㅣ", "ㅈ", "ㅏ"] },

@@ -172,6 +172,17 @@
       gap: 10px;
     }
 
+    .ad-slot {
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+      width: min(100%, 360px);
+      margin: 16px auto 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
     .test-card {
       overflow: hidden;
       min-height: 246px;
@@ -495,6 +506,13 @@
         <span class="tag" id="testCount">0개</span>
       </div>
       <div class="test-grid" id="testGrid"></div>
+      <div class="ad-slot" aria-label="광고">
+        <span>광고</span>
+        <ins class="kakao_ad_area" style="display:none;"
+          data-ad-unit="DAN-IyjFMMsX8A0cddwc"
+          data-ad-width="320"
+          data-ad-height="100"></ins>
+      </div>
     </section>
 
     <section class="screen" id="startScreen">
@@ -547,6 +565,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script async type="text/javascript" src="https://t1.kakaocdn.net/kas/static/ba.min.js"></script>
   <script>
     const baseQuestions = [
       {
