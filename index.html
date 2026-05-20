@@ -285,11 +285,21 @@
       display: grid;
       justify-items: center;
       gap: 6px;
-      width: min(100%, 520px);
-      margin: 4px auto;
+      width: min(100%, 320px);
+      margin: 2px auto 0;
       color: var(--muted);
       font-size: 11px;
       font-weight: 800;
+    }
+
+    @media (min-width: 1500px) {
+      .ad-slot {
+        position: fixed;
+        top: 132px;
+        right: max(18px, calc((100vw - 820px) / 2 - 360px));
+        z-index: 2;
+        margin: 0;
+      }
     }
 
     .chip {
@@ -631,18 +641,18 @@
         <div class="stat"><strong id="statStreak">0</strong><span>연승</span></div>
         <div class="stat"><strong id="statRate">0%</strong><span>승률</span></div>
       </div>
-      <div class="ad-slot" aria-label="광고">
-        <span>광고</span>
-        <ins class="kakao_ad_area" style="display:none;"
-          data-ad-unit="DAN-IyjFMMsX8A0cddwc"
-          data-ad-width="320"
-          data-ad-height="100"></ins>
-      </div>
       <div class="meta">
         <span class="chip" id="tryCount">1 / 5</span>
         <span>사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
+      <div class="ad-slot" aria-label="advertisement">
+        <span>&#44305;&#44256;</span>
+        <ins class="kakao_ad_area" style="display:none;"
+          data-ad-unit="DAN-IyjFMMsX8A0cddwc"
+          data-ad-width="320"
+          data-ad-height="100"></ins>
+      </div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </section>
 
