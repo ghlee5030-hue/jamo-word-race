@@ -14,6 +14,12 @@ const mimeTypes = {
   ".json": "application/json; charset=utf-8"
 };
 
+const securityHeaders = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"
+};
+
 function loadAnswers() {
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const block = html.match(/const ANSWERS = \[([\s\S]*?)\];/);
@@ -27,7 +33,7 @@ function loadAnswers() {
 const answers = loadAnswers();
 
 function sendJson(res, status, body) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(status, { ...securityHeaders, "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
 }
 
@@ -297,6 +303,7 @@ function handleEvents(req, res, url) {
     const room = requireRoom(url.searchParams.get("room"));
     requirePlayer(room, url.searchParams.get("player"));
     res.writeHead(200, {
+      ...securityHeaders,
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache",
       Connection: "keep-alive"
@@ -323,7 +330,7 @@ function serveFile(req, res, pathname) {
       res.end("Not found");
       return;
     }
-    res.writeHead(200, { "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream" });
+    res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream" });
     res.end(content);
   });
 }
