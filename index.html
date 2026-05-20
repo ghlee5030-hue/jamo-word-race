@@ -263,6 +263,10 @@
       font-weight: 950;
     }
 
+    .timer-chip[hidden] {
+      display: none;
+    }
+
     .countdown {
       position: fixed;
       inset: 0;
@@ -643,6 +647,7 @@
       </div>
       <div class="meta">
         <span class="chip" id="tryCount">1 / 5</span>
+        <span class="chip timer-chip" id="roundClock" hidden>3:30</span>
         <span>사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
@@ -807,6 +812,7 @@
     const keyboard = document.getElementById("keyboard");
     const toast = document.getElementById("toast");
     const tryCount = document.getElementById("tryCount");
+    const roundClock = document.getElementById("roundClock");
     const helpPanel = document.getElementById("helpPanel");
     const resultPanel = document.getElementById("resultPanel");
     const resultTitle = document.getElementById("resultTitle");
@@ -922,6 +928,7 @@
       makeBoard();
       makeKeyboard();
       updateTryCount();
+      updateRoundClock();
       resultPanel.hidden = true;
       showToast("새 문제 시작");
     }
@@ -937,6 +944,7 @@
       makeBoard();
       makeKeyboard();
       updateTryCount();
+      updateRoundClock();
     }
 
     function tilesInRow(rowIndex = state.row) {
@@ -1071,6 +1079,15 @@
 
     function updateTryCount() {
       tryCount.textContent = `${Math.min(state.row + 1, MAX_GUESSES)} / ${MAX_GUESSES}`;
+    }
+
+    function updateRoundClock() {
+      if (roomState.joined && roomState.started && roomState.endsAt) {
+        roundClock.hidden = false;
+        roundClock.textContent = `\uB0A8\uC740\uC2DC\uAC04 ${formatTimeLeft(roomState.endsAt)}`;
+      } else {
+        roundClock.hidden = true;
+      }
     }
 
     function showToast(message) {
@@ -1328,16 +1345,17 @@
       roomState.started = data.started;
       roomState.endsAt = data.endsAt || 0;
       roomState.players = data.players || [];
+      updateRoundClock();
       if (wasStarted && !roomState.started) {
         stopRoundTimer();
         roomState.endsAt = 0;
-        readyForNextRound();
+        showRoomRoundResult(data);
       }
       const me = roomState.players.find((player) => player.id === roomState.playerId);
       const isHost = roomState.hostId === roomState.playerId;
       const count = roomState.players.length;
-      const timerText = roomState.started && roomState.endsAt ? ` · ${formatTimeLeft(roomState.endsAt)}` : "";
-      roomStatus.innerHTML = `방 ${roomState.room} · ${count}/5명<span class="round-timer">${timerText}</span>`;
+      const timerText = roomState.started && roomState.endsAt ? ` &middot; ${formatTimeLeft(roomState.endsAt)}` : "";
+      roomStatus.innerHTML = `&#48169; ${roomState.room} &middot; ${count}/5&#47749;<span class="round-timer">${timerText}</span>`;
       roomPlayers.hidden = false;
       roomPlayers.innerHTML = roomState.players.map((player) => {
         const marks = [
@@ -1421,6 +1439,7 @@
 
     function startRoundTimer() {
       if (roomState.roundTimer) window.clearInterval(roomState.roundTimer);
+      updateRoundClock();
       roomState.roundTimer = window.setInterval(() => {
         if (!roomState.started || !roomState.endsAt) {
           window.clearInterval(roomState.roundTimer);
@@ -1443,6 +1462,7 @@
         roomState.roundTimer = null;
       }
       roomState.endsAt = 0;
+      updateRoundClock();
     }
 
     function readyForNextRound() {
@@ -1455,6 +1475,26 @@
       chatSendButton.disabled = false;
       readyButton.hidden = false;
       showToast("방 대기 상태로 돌아왔어요");
+    }
+
+    function showRoomRoundResult(data) {
+      const players = data?.players || roomState.players || [];
+      const me = players.find((player) => player.id === roomState.playerId);
+      const winner = players.find((player) => player.result === "win");
+      const won = me?.result === "win";
+      state.done = true;
+      recordGame(won);
+      countdownOverlay.hidden = true;
+      resultTitle.textContent = won ? "승리!" : "패배!";
+      if (won) {
+        const tries = me?.tries || state.guesses.length || 1;
+        resultText.textContent = `${state.nickname}님이 ${tries}번 만에 가장 먼저 맞췄어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+      } else if (winner) {
+        resultText.textContent = `${winner.name}님이 먼저 맞췄어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+      } else {
+        resultText.textContent = `시간 안에 맞춘 사람이 없어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+      }
+      resultPanel.hidden = false;
     }
 
     function formatTimeLeft(endsAt) {
