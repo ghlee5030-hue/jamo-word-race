@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>오늘의 낱자</title>
+  <title>단어배틀</title>
   <style>
     :root {
       color-scheme: dark;
@@ -396,6 +396,16 @@
       display: grid;
       gap: 7px;
       padding-bottom: env(safe-area-inset-bottom);
+      position: relative;
+      z-index: 4;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      will-change: transform;
+    }
+
+    .keyboard.dragging {
+      cursor: grabbing;
     }
 
     .key-row {
@@ -620,7 +630,7 @@
   <main class="app">
     <header>
       <button class="icon-button" id="helpButton" title="도움말" aria-label="도움말">?</button>
-      <h1>오늘의 낱자</h1>
+      <h1>단어배틀</h1>
       <button class="icon-button" id="newButton" title="새 문제" aria-label="새 문제">↻</button>
     </header>
 
@@ -1254,6 +1264,20 @@
       roundTimer: null
     };
 
+    const keyboardDrag = {
+      active: false,
+      moved: false,
+      suppressClick: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      offsetX: 0,
+      offsetY: 0,
+      rect: null
+    };
+
     function pickAnswer(previousWord = "") {
       if (ANSWERS.length <= 1) return ANSWERS[0];
       let answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
@@ -1295,6 +1319,80 @@
         }
         keyboard.append(row);
       }
+    }
+
+    function setKeyboardOffset(x, y, baseRect = keyboard.getBoundingClientRect(), baseX = keyboardDrag.offsetX, baseY = keyboardDrag.offsetY) {
+      const margin = 8;
+      let nextX = x;
+      let nextY = y;
+      const dx = nextX - baseX;
+      const dy = nextY - baseY;
+      const left = baseRect.left + dx;
+      const right = baseRect.right + dx;
+
+      if (left < margin) nextX += margin - left;
+      if (right > window.innerWidth - margin) nextX -= right - (window.innerWidth - margin);
+
+      keyboardDrag.offsetX = nextX;
+      keyboardDrag.offsetY = nextY;
+      keyboard.style.transform = `translate(${Math.round(nextX)}px, ${Math.round(nextY)}px)`;
+    }
+
+    function enableKeyboardDrag() {
+      keyboard.addEventListener("pointerdown", (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        keyboardDrag.active = true;
+        keyboardDrag.moved = false;
+        keyboardDrag.pointerId = event.pointerId;
+        keyboardDrag.startX = event.clientX;
+        keyboardDrag.startY = event.clientY;
+        keyboardDrag.startOffsetX = keyboardDrag.offsetX;
+        keyboardDrag.startOffsetY = keyboardDrag.offsetY;
+        keyboardDrag.rect = keyboard.getBoundingClientRect();
+        keyboard.classList.add("dragging");
+        keyboard.setPointerCapture?.(event.pointerId);
+      });
+
+      keyboard.addEventListener("pointermove", (event) => {
+        if (!keyboardDrag.active || event.pointerId !== keyboardDrag.pointerId) return;
+        const dx = event.clientX - keyboardDrag.startX;
+        const dy = event.clientY - keyboardDrag.startY;
+        if (Math.abs(dx) + Math.abs(dy) > 6) keyboardDrag.moved = true;
+        if (!keyboardDrag.moved) return;
+        event.preventDefault();
+        setKeyboardOffset(
+          keyboardDrag.startOffsetX + dx,
+          keyboardDrag.startOffsetY + dy,
+          keyboardDrag.rect,
+          keyboardDrag.startOffsetX,
+          keyboardDrag.startOffsetY
+        );
+      });
+
+      function stopDrag(event) {
+        if (!keyboardDrag.active || event.pointerId !== keyboardDrag.pointerId) return;
+        keyboardDrag.active = false;
+        keyboard.classList.remove("dragging");
+        keyboard.releasePointerCapture?.(event.pointerId);
+        if (keyboardDrag.moved) {
+          keyboardDrag.suppressClick = true;
+          window.setTimeout(() => {
+            keyboardDrag.suppressClick = false;
+          }, 0);
+        }
+      }
+
+      keyboard.addEventListener("pointerup", stopDrag);
+      keyboard.addEventListener("pointercancel", stopDrag);
+      keyboard.addEventListener("click", (event) => {
+        if (!keyboardDrag.suppressClick) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }, true);
+      window.addEventListener("resize", () => {
+        if (!keyboardDrag.offsetX && !keyboardDrag.offsetY) return;
+        setKeyboardOffset(keyboardDrag.offsetX, keyboardDrag.offsetY);
+      });
     }
 
     function isAnswer(value) {
@@ -1502,7 +1600,7 @@
     async function copyResult() {
       const lines = state.guesses.map(({ result }) => result.map(resultEmoji).join(""));
       const stats = getCurrentStats();
-      const text = `오늘의 낱자 ${state.nickname} ${state.guesses.length}/${MAX_GUESSES}\n${lines.join("\n")}\n승률 ${getWinRate(stats)} · 연승 ${stats.streak}\n${getShareUrl()}`;
+      const text = `단어배틀 ${state.nickname} ${state.guesses.length}/${MAX_GUESSES}\n${lines.join("\n")}\n승률 ${getWinRate(stats)} · 연승 ${stats.streak}\n${getShareUrl()}`;
       try {
         await navigator.clipboard.writeText(text);
         showToast("결과를 복사했어요");
@@ -1616,7 +1714,7 @@
     }
 
     async function copyShareLink() {
-      const text = `오늘의 낱자 같이 해보자!\n${getShareUrl()}`;
+      const text = `단어배틀 같이 해보자!\n${getShareUrl()}`;
       try {
         await navigator.clipboard.writeText(text);
         showToast("공유 링크를 복사했어요");
@@ -1662,7 +1760,7 @@
       try {
         const data = await apiPost("/api/room", { name: state.nickname });
         enterRoom(data);
-        await navigator.clipboard.writeText(`오늘의 낱자 방 초대\n${roomUrl(data.room)}`);
+        await navigator.clipboard.writeText(`단어배틀 방 초대\n${roomUrl(data.room)}`);
         showToast("방을 만들고 초대 링크를 복사했어요");
       } catch (error) {
         showToast(error.message);
@@ -2215,6 +2313,7 @@
       state.nickname = "손님";
       openProfilePanel();
     }
+    enableKeyboardDrag();
     updateStatsView();
     reset();
     const inviteRoom = new URLSearchParams(window.location.search).get("room");

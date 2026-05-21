@@ -355,5 +355,5 @@ const server = http.createServer((req, res) => {
 
 const port = Number(process.env.PORT) || 3000;
 server.listen(port, () => {
-  console.log(`오늘의 낱자 서버: http://localhost:${port}`);
+  console.log(`단어배틀 서버: http://localhost:${port}`);
 });
