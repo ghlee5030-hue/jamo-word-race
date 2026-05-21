@@ -1202,6 +1202,13 @@
     };
     const VALID_JAMO = new Set([...INITIALS, ...VOWELS.flatMap((vowel) => EXPAND[vowel] || [vowel]), ...FINALS.flatMap((final) => final ? (EXPAND[final] || [final]) : [])]);
     const rank = { absent: 1, present: 2, correct: 3 };
+    const LOSS_TAUNTS = [
+      "느려! 손가락 예열부터 다시 하고 오세요.",
+      "단어 공부 좀 더 하고 와야겠네요.",
+      "오늘은 키보드가 아니라 자존심이 미끄러졌네요.",
+      "힌트는 없었지만 변명은 많아질 것 같네요.",
+      "다음 판엔 뇌 속도 제한을 풀고 오세요."
+    ];
     const encyclopedia = buildEncyclopedia();
 
     const board = document.getElementById("board");
@@ -1591,7 +1598,7 @@
       resultTitle.textContent = won ? "정답!" : "아쉽다!";
       resultText.textContent = won
         ? `${state.nickname}님이 ${tries}번째 시도에 맞혔어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`
-        : `오답입니다. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다. ${state.nickname}님의 연승은 여기서 멈췄어요.`;
+        : `오답입니다.\n${LOSS_TAUNTS[Math.floor(Math.random() * LOSS_TAUNTS.length)]}\n정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다. ${state.nickname}님의 연승은 여기서 멈췄어요.`;
       resultPanel.hidden = false;
     }
 
@@ -2009,6 +2016,9 @@
         lines.push(`${winner.name}님이 먼저 맞췄어요.`);
       } else {
         lines.push("시간 안에 맞춘 사람이 없어요.");
+      }
+      if (!won) {
+        lines.push(LOSS_TAUNTS[Math.floor(Math.random() * LOSS_TAUNTS.length)]);
       }
       lines.push(`정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`);
       resultText.textContent = lines.join("\n");
