@@ -10,6 +10,7 @@ const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
+const READY_IDLE_KICK_MS = 30000;
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -132,8 +133,58 @@ function broadcast(room, message) {
   }
 }
 
+function sendToPlayer(room, playerId, message) {
+  const text = `data: ${JSON.stringify(message)}\n\n`;
+  for (const client of room.clients) {
+    if (client.playerId === playerId) client.write(text);
+  }
+}
+
 function broadcastState(room) {
   broadcast(room, { type: "state", state: publicState(room) });
+}
+
+function publicRoomList() {
+  return [...rooms.values()]
+    .filter((room) => !room.started && !room.countdownUntil && room.players.size > 0 && room.players.size < 5)
+    .map((room) => ({
+      code: room.code,
+      count: room.players.size,
+      wordLength: room.wordLength,
+      hostName: room.players.get(room.hostId)?.name || "방장"
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+function removePlayer(room, playerId, reason = "") {
+  const player = requirePlayer(room, playerId);
+  sendToPlayer(room, player.id, { type: "kicked", reason: reason || "방에서 나갔어요" });
+  room.players.delete(player.id);
+  if (room.players.size === 0) {
+    if (room.timer) clearTimeout(room.timer);
+    if (room.countdownTimer) clearTimeout(room.countdownTimer);
+    rooms.delete(room.code);
+    return;
+  }
+  if (room.hostId === player.id) {
+    room.hostId = [...room.players.keys()][0];
+    const host = room.players.get(room.hostId);
+    if (host) host.ready = true;
+  }
+  broadcastState(room);
+}
+
+function sweepIdlePlayers() {
+  const now = Date.now();
+  for (const room of [...rooms.values()]) {
+    if (room.started || room.countdownUntil) continue;
+    for (const player of [...room.players.values()]) {
+      if (player.id === room.hostId || player.ready) continue;
+      if (now - (player.lastActive || player.joinedAt || now) >= READY_IDLE_KICK_MS) {
+        removePlayer(room, player.id, "30초 동안 준비하지 않아 자동 강퇴됐어요");
+      }
+    }
+  }
 }
 
 function finishTimedOutPlayers(room) {
@@ -196,9 +247,15 @@ async function handleApi(req, res, pathname) {
   try {
     const body = await readJson(req);
 
+    if (pathname === "/api/rooms") {
+      sendJson(res, 200, { rooms: publicRoomList() });
+      return;
+    }
+
     if (pathname === "/api/room") {
       const code = makeRoomCode();
-      const player = { id: makePlayerId(), name: cleanName(body.name), ready: true, result: "", tries: 0, finishedAt: 0 };
+      const now = Date.now();
+      const player = { id: makePlayerId(), name: cleanName(body.name), ready: true, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       const room = {
         code,
         hostId: player.id,
@@ -224,6 +281,7 @@ async function handleApi(req, res, pathname) {
       const name = cleanName(body.name);
       const existingPlayer = room.players.get(String(body.playerId || ""));
       if (existingPlayer && existingPlayer.name === name) {
+        existingPlayer.lastActive = Date.now();
         sendJson(res, 200, { room: room.code, playerId: existingPlayer.id, state: publicState(room) });
         return;
       }
@@ -231,7 +289,8 @@ async function handleApi(req, res, pathname) {
       if (duplicateName) throw new Error("이미 같은 닉네임이 이 방에 있어요");
       if (room.players.size >= 5) throw new Error("방은 최대 5명까지 입장할 수 있어요");
       if (room.started || room.countdownUntil) throw new Error("이미 시작한 방입니다");
-      const player = { id: makePlayerId(), name, ready: false, result: "", tries: 0, finishedAt: 0 };
+      const now = Date.now();
+      const player = { id: makePlayerId(), name, ready: false, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       room.players.set(player.id, player);
       broadcastState(room);
       sendJson(res, 200, { room: room.code, playerId: player.id, state: publicState(room) });
@@ -242,8 +301,29 @@ async function handleApi(req, res, pathname) {
       const room = requireRoom(body.room);
       const player = requirePlayer(room, body.playerId);
       if (room.started || room.countdownUntil) throw new Error("이미 시작했어요");
+      player.lastActive = Date.now();
       player.ready = !player.ready;
       broadcastState(room);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/leave") {
+      const room = requireRoom(body.room);
+      if (room.started || room.countdownUntil) throw new Error("게임 중에는 나갈 수 없어요");
+      removePlayer(room, body.playerId);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/kick") {
+      const room = requireRoom(body.room);
+      const host = requirePlayer(room, body.playerId);
+      if (room.hostId !== host.id) throw new Error("방장만 강퇴할 수 있어요");
+      if (room.started || room.countdownUntil) throw new Error("게임 중에는 강퇴할 수 없어요");
+      const targetId = String(body.targetId || "");
+      if (targetId === room.hostId) throw new Error("방장은 강퇴할 수 없어요");
+      removePlayer(room, targetId, "방장이 강퇴했어요");
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -313,6 +393,7 @@ async function handleApi(req, res, pathname) {
       const room = requireRoom(body.room);
       const player = requirePlayer(room, body.playerId);
       if (room.started || room.countdownUntil) throw new Error("채팅은 시작 전에만 가능해요");
+      player.lastActive = Date.now();
       const text = String(body.text || "").trim().slice(0, 120);
       if (!text) throw new Error("메시지를 입력하세요");
       const message = { id: makePlayerId(), name: player.name, text, at: Date.now() };
@@ -332,13 +413,15 @@ async function handleApi(req, res, pathname) {
 function handleEvents(req, res, url) {
   try {
     const room = requireRoom(url.searchParams.get("room"));
-    requirePlayer(room, url.searchParams.get("player"));
+    const player = requirePlayer(room, url.searchParams.get("player"));
+    player.lastActive = Date.now();
     res.writeHead(200, {
       ...securityHeaders,
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache",
       Connection: "keep-alive"
     });
+    res.playerId = player.id;
     res.write(`data: ${JSON.stringify({ type: "state", state: publicState(room) })}\n\n`);
     room.clients.add(res);
     req.on("close", () => room.clients.delete(res));
@@ -368,6 +451,10 @@ function serveFile(req, res, pathname) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (req.method === "GET" && url.pathname === "/api/rooms") {
+    sendJson(res, 200, { rooms: publicRoomList() });
+    return;
+  }
   if (req.method === "POST" && url.pathname.startsWith("/api/")) {
     if (isRateLimited(req)) {
       sendJson(res, 429, { error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요" });
@@ -389,6 +476,7 @@ const server = http.createServer((req, res) => {
 });
 
 const port = Number(process.env.PORT) || 3000;
+setInterval(sweepIdlePlayers, 5000);
 server.listen(port, () => {
   console.log(`단어배틀 서버: http://localhost:${port}`);
 });

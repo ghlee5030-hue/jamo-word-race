@@ -181,6 +181,29 @@
       gap: 6px;
     }
 
+    .available-rooms {
+      display: grid;
+      gap: 6px;
+      width: min(100%, 520px);
+    }
+
+    .available-room {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px 9px;
+      background: rgba(0, 0, 0, 0.12);
+      color: #dbe3e9;
+      font-size: 13px;
+    }
+
+    .available-room strong {
+      color: var(--ink);
+    }
+
     .player-line {
       display: flex;
       align-items: center;
@@ -686,6 +709,7 @@
           <button class="mini-button" id="leaveRoomButton" hidden>나가기</button>
         </div>
         <div class="room-list" id="roomPlayers" hidden></div>
+        <div class="available-rooms" id="availableRooms"></div>
         <div class="chat-box" id="chatBox" hidden>
           <div class="chat-log" id="chatLog"></div>
           <div class="chat-form">
@@ -1377,6 +1401,7 @@
     const roomPanel = document.getElementById("roomPanel");
     const roomStatus = document.getElementById("roomStatus");
     const roomPlayers = document.getElementById("roomPlayers");
+    const availableRooms = document.getElementById("availableRooms");
     const roomCodeInput = document.getElementById("roomCodeInput");
     const wordLengthSelect = document.getElementById("wordLengthSelect");
     const createRoomButton = document.getElementById("createRoomButton");
@@ -1938,6 +1963,13 @@
       return data;
     }
 
+    async function apiGet(path) {
+      const response = await fetch(path);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.error) throw new Error(data.error || "요청에 실패했어요");
+      return data;
+    }
+
     function isHostedByGameServer() {
       return window.location.protocol === "http:" || window.location.protocol === "https:";
     }
@@ -1991,12 +2023,57 @@
       }
     }
 
+    async function refreshRoomList() {
+      if (!isHostedByGameServer() || roomState.joined) {
+        availableRooms.innerHTML = "";
+        return;
+      }
+      try {
+        const data = await apiGet("/api/rooms");
+        const list = data.rooms || [];
+        if (!list.length) {
+          availableRooms.innerHTML = `<div class="available-room"><span>생성된 대기방이 없어요</span><button class="mini-button" type="button" disabled>대기</button></div>`;
+          return;
+        }
+        availableRooms.innerHTML = list.map((room) => `
+          <div class="available-room">
+            <span><strong>${escapeHtml(room.code)}</strong> · ${room.count}/5명 · ${room.wordLength}낱자 · 방장 ${escapeHtml(room.hostName)}</span>
+            <button class="mini-button" type="button" data-room-code="${escapeHtml(room.code)}">입장</button>
+          </div>
+        `).join("");
+      } catch {
+        availableRooms.innerHTML = "";
+      }
+    }
+
+    availableRooms.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-room-code]");
+      if (!button) return;
+      roomCodeInput.value = button.dataset.roomCode;
+      joinRoom(button.dataset.roomCode);
+    });
+
+    roomPlayers.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-kick-player]");
+      if (!button || !roomState.joined) return;
+      try {
+        await apiPost("/api/kick", {
+          room: roomState.room,
+          playerId: roomState.playerId,
+          targetId: button.dataset.kickPlayer
+        });
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
     function enterRoom(data) {
       roomState.room = data.room;
       roomState.playerId = data.playerId;
       roomState.joined = true;
       roomState.started = false;
       roomCodeInput.value = data.room;
+      availableRooms.innerHTML = "";
       saveRoomSession();
       connectRoomEvents();
       updateRoomView(data.state);
@@ -2013,10 +2090,16 @@
         if (message.type === "start") startSharedGame(message.answer, message.state);
         if (message.type === "timeout") handleRoomTimeout(message.state);
         if (message.type === "chat") addChatMessage(message.message);
+        if (message.type === "kicked") handleKicked(message.reason);
       };
       roomState.eventSource.onerror = () => {
         roomStatus.textContent = "연결 재시도 중";
       };
+    }
+
+    function handleKicked(reason = "방에서 나갔어요") {
+      showToast(reason);
+      leaveRoomLocal();
     }
 
     function updateRoomView(data) {
@@ -2034,6 +2117,10 @@
         showRoomRoundResult(data);
       }
       const me = roomState.players.find((player) => player.id === roomState.playerId);
+      if (roomState.joined && roomState.playerId && !me) {
+        handleKicked("방에서 나갔어요");
+        return;
+      }
       const isHost = roomState.hostId === roomState.playerId;
       const count = roomState.players.length;
       const timerText = roomState.started && roomState.endsAt ? ` &middot; ${formatTimeLeft(roomState.endsAt)}` : "";
@@ -2045,7 +2132,10 @@
           player.ready ? "준비" : "대기",
           player.result ? `${player.result === "win" ? "승" : "패"} ${player.tries}회` : ""
         ].filter(Boolean).join(" · ");
-        return `<div class="player-line"><strong>${escapeHtml(player.name)}</strong><span>${marks}</span></div>`;
+        const kickButton = isHost && !roomState.started && player.id !== roomState.hostId
+          ? `<button class="mini-button" type="button" data-kick-player="${escapeHtml(player.id)}">강퇴</button>`
+          : "";
+        return `<div class="player-line"><strong>${escapeHtml(player.name)}</strong><span>${marks}</span>${kickButton}</div>`;
       }).join("");
       createRoomButton.hidden = true;
       joinRoomButton.hidden = true;
@@ -2245,7 +2335,7 @@
       }
     }
 
-    function leaveRoom() {
+    function leaveRoomLocal() {
       if (roomState.eventSource) roomState.eventSource.close();
       roomState.room = "";
       roomState.playerId = "";
@@ -2261,6 +2351,7 @@
       roomStatus.textContent = "혼자 하기";
       roomPlayers.hidden = true;
       roomPlayers.innerHTML = "";
+      availableRooms.innerHTML = "";
       chatLog.innerHTML = "";
       chatBox.hidden = true;
       createRoomButton.hidden = false;
@@ -2273,6 +2364,18 @@
       clearRoomSession();
       history.replaceState(null, "", getShareUrl());
       reset();
+      refreshRoomList();
+    }
+
+    function leaveRoom() {
+      const leavingRoom = roomState.room;
+      const leavingPlayer = roomState.playerId;
+      if (leavingRoom && leavingPlayer) {
+        apiPost("/api/leave", { room: leavingRoom, playerId: leavingPlayer }).catch(() => {
+          // The local UI should still leave even if the server already dropped the room.
+        });
+      }
+      leaveRoomLocal();
     }
 
     async function sendChat() {
@@ -2531,6 +2634,7 @@
     document.getElementById("sparkButton").addEventListener("click", () => {
       window.location.href = "spark.html";
     });
+    window.setInterval(refreshRoomList, 5000);
 
     state.nickname = localStorage.getItem(STORAGE_KEY) || "";
     if (!state.nickname) {
@@ -2541,6 +2645,7 @@
     enableKeyboardDrag();
     updateStatsView();
     reset();
+    refreshRoomList();
     const inviteRoom = new URLSearchParams(window.location.search).get("room");
     if (inviteRoom) {
       roomCodeInput.value = inviteRoom.toUpperCase();
