@@ -11,6 +11,7 @@ const ROUND_MS = 210000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 30000;
+const SSE_KEEPALIVE_MS = 15000;
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -424,7 +425,13 @@ function handleEvents(req, res, url) {
     res.playerId = player.id;
     res.write(`data: ${JSON.stringify({ type: "state", state: publicState(room) })}\n\n`);
     room.clients.add(res);
-    req.on("close", () => room.clients.delete(res));
+    const keepalive = setInterval(() => {
+      res.write(`: keepalive ${Date.now()}\n\n`);
+    }, SSE_KEEPALIVE_MS);
+    req.on("close", () => {
+      clearInterval(keepalive);
+      room.clients.delete(res);
+    });
   } catch (error) {
     sendJson(res, 400, { error: error.message });
   }

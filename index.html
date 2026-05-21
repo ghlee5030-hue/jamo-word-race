@@ -455,6 +455,26 @@
       cursor: grabbing;
     }
 
+    .keyboard-tools {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .keyboard-select {
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 8px;
+      color: var(--ink);
+      background: var(--panel-2);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 850;
+      outline: 0;
+    }
+
     .keyboard {
       display: grid;
       gap: 7px;
@@ -734,7 +754,13 @@
     </section>
 
     <div class="keyboard-tray" id="keyboardTray">
-      <div class="keyboard-handle" id="keyboardHandle" role="button" aria-label="키보드 이동">키보드 이동</div>
+      <div class="keyboard-tools">
+        <div class="keyboard-handle" id="keyboardHandle" role="button" aria-label="키보드 이동">키보드 이동</div>
+        <select class="keyboard-select" id="keyboardLayoutSelect" aria-label="키보드 방식">
+          <option value="qwerty">두벌식</option>
+          <option value="cheonjiin">천지인</option>
+        </select>
+      </div>
       <section class="keyboard" id="keyboard" aria-label="화면 키보드"></section>
     </div>
     <div class="ad-slot" aria-label="advertisement">
@@ -1329,6 +1355,34 @@
       ["ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ"],
       ["⌫", "ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ", "입력"]
     ];
+    const CHEONJIIN_ROWS = [
+      ["ㄱㅋ", "ㄴㄹ", "ㄷㅌ"],
+      ["ㅂㅍ", "ㅅㅎ", "ㅈㅊ"],
+      ["ㅇㅁ", "ㆍ", "ㅡ", "ㅣ"],
+      ["⌫", "입력"]
+    ];
+    const CHEONJIIN_GROUPS = {
+      "ㄱㅋ": ["ㄱ", "ㅋ"],
+      "ㄴㄹ": ["ㄴ", "ㄹ"],
+      "ㄷㅌ": ["ㄷ", "ㅌ"],
+      "ㅂㅍ": ["ㅂ", "ㅍ"],
+      "ㅅㅎ": ["ㅅ", "ㅎ"],
+      "ㅈㅊ": ["ㅈ", "ㅊ"],
+      "ㅇㅁ": ["ㅇ", "ㅁ"]
+    };
+    const CHEONJIIN_VOWELS = {
+      "ㅡ": "ㅡ",
+      "ㅣ": "ㅣ",
+      "ㅣㆍ": "ㅏ",
+      "ㆍㅣ": "ㅓ",
+      "ㅣㆍㆍ": "ㅑ",
+      "ㆍㆍㅣ": "ㅕ",
+      "ㆍㅡ": "ㅗ",
+      "ㅡㆍ": "ㅜ",
+      "ㆍㅡㆍ": "ㅛ",
+      "ㅡㆍㆍ": "ㅠ",
+      "ㅡㅣ": "ㅢ"
+    };
 
     const INITIALS = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
     const VOWELS = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"];
@@ -1384,6 +1438,7 @@
     const keyboard = document.getElementById("keyboard");
     const keyboardTray = document.getElementById("keyboardTray");
     const keyboardHandle = document.getElementById("keyboardHandle");
+    const keyboardLayoutSelect = document.getElementById("keyboardLayoutSelect");
     const toast = document.getElementById("toast");
     const tryCount = document.getElementById("tryCount");
     const roundClock = document.getElementById("roundClock");
@@ -1419,6 +1474,7 @@
     const STORAGE_KEY = "jamo-word-game-profile";
     const STATS_KEY = "jamo-word-game-stats";
     const ROOM_SESSION_KEY = "jamo-word-game-room-session";
+    const KEYBOARD_LAYOUT_KEY = "jamo-word-game-keyboard-layout";
     const MAX_GUESSES = 5;
     const DEFAULT_WORD_LENGTH = 5;
 
@@ -1432,7 +1488,10 @@
       recorded: false,
       nickname: "",
       guesses: [],
-      keyRanks: new Map()
+      keyRanks: new Map(),
+      keyboardLayout: localStorage.getItem(KEYBOARD_LAYOUT_KEY) || "qwerty",
+      multiTap: { key: "", row: -1, col: -1, index: 0, at: 0 },
+      vowelTap: { seq: "", row: -1, col: -1, at: 0 }
     };
 
     const roomState = {
@@ -1505,13 +1564,15 @@
 
     function makeKeyboard() {
       keyboard.innerHTML = "";
-      for (const keyRow of KEY_ROWS) {
+      keyboardLayoutSelect.value = state.keyboardLayout;
+      const rows = state.keyboardLayout === "cheonjiin" ? CHEONJIIN_ROWS : KEY_ROWS;
+      for (const keyRow of rows) {
         const row = document.createElement("div");
         row.className = "key-row";
         for (const text of keyRow) {
           const key = document.createElement("button");
           key.type = "button";
-          key.className = text.length > 1 ? "key wide" : "key";
+          key.className = text.length > 1 || CHEONJIIN_GROUPS[text] ? "key wide" : "key";
           key.textContent = text;
           key.dataset.key = text;
           key.addEventListener("click", () => onKey(text));
@@ -1609,6 +1670,8 @@
       state.recorded = false;
       state.guesses = [];
       state.keyRanks.clear();
+      state.multiTap = { key: "", row: -1, col: -1, index: 0, at: 0 };
+      state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
       makeBoard();
       makeKeyboard();
       updateTryCount();
@@ -1625,6 +1688,8 @@
       state.recorded = false;
       state.guesses = [];
       state.keyRanks.clear();
+      state.multiTap = { key: "", row: -1, col: -1, index: 0, at: 0 };
+      state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
       makeBoard();
       makeKeyboard();
       updateTryCount();
@@ -1646,6 +1711,14 @@
       tile.classList.add("filled", "pop");
       window.setTimeout(() => tile.classList.remove("pop"), 180);
       state.col += 1;
+    }
+
+    function replacePreviousJamo(jamo) {
+      if (state.done || state.col <= 0 || !VALID_JAMO.has(jamo)) return;
+      const tile = board.querySelector(`[data-row="${state.row}"][data-col="${state.col - 1}"]`);
+      tile.textContent = jamo;
+      tile.classList.add("filled", "pop");
+      window.setTimeout(() => tile.classList.remove("pop"), 180);
     }
 
     function addMany(items) {
@@ -2094,6 +2167,10 @@
       };
       roomState.eventSource.onerror = () => {
         roomStatus.textContent = "연결 재시도 중";
+        window.clearTimeout(connectRoomEvents.timer);
+        connectRoomEvents.timer = window.setTimeout(() => {
+          if (roomState.joined) connectRoomEvents();
+        }, 1500);
       };
     }
 
@@ -2569,11 +2646,56 @@
 
     function onKey(key) {
       if (key === "⌫") {
+        state.vowelTap.seq = "";
         backspace();
       } else if (key === "입력") {
+        state.vowelTap.seq = "";
         submitGuess();
+      } else if (state.keyboardLayout === "cheonjiin") {
+        onCheonjiinKey(key);
       } else {
+        state.vowelTap.seq = "";
         addMany(decomposeText(key));
+      }
+    }
+
+    function onCheonjiinKey(key) {
+      const now = Date.now();
+      const group = CHEONJIIN_GROUPS[key];
+      if (group) {
+        state.vowelTap.seq = "";
+        const canCycle = state.multiTap.key === key
+          && state.multiTap.row === state.row
+          && state.multiTap.col === state.col - 1
+          && now - state.multiTap.at < 900;
+        if (canCycle) {
+          state.multiTap.index = (state.multiTap.index + 1) % group.length;
+          replacePreviousJamo(group[state.multiTap.index]);
+        } else {
+          addJamo(group[0]);
+          state.multiTap = { key, row: state.row, col: state.col - 1, index: 0, at: now };
+        }
+        return;
+      }
+
+      if (key === "ㆍ" || key === "ㅡ" || key === "ㅣ") {
+        const canContinue = state.vowelTap.seq
+          && state.vowelTap.row === state.row
+          && now - state.vowelTap.at < 1200;
+        let seq = canContinue ? state.vowelTap.seq + key : key;
+        let vowel = CHEONJIIN_VOWELS[seq];
+        if (!vowel && key !== "ㆍ") {
+          seq = key;
+          vowel = CHEONJIIN_VOWELS[seq];
+        }
+        if (vowel) {
+          const replace = state.vowelTap.col === state.col - 1 && state.vowelTap.row === state.row;
+          if (replace) replacePreviousJamo(vowel);
+          else addJamo(vowel);
+          state.vowelTap = { seq, row: state.row, col: state.col - 1, at: now };
+        } else {
+          state.vowelTap = { seq, row: state.row, col: state.col, at: now };
+        }
       }
     }
 
@@ -2619,6 +2741,13 @@
     startRoomButton.addEventListener("click", startRoomGame);
     wordLengthSelect.addEventListener("change", () => {
       if (!roomState.started) setWordLength(wordLengthSelect.value);
+    });
+    keyboardLayoutSelect.addEventListener("change", () => {
+      state.keyboardLayout = keyboardLayoutSelect.value === "cheonjiin" ? "cheonjiin" : "qwerty";
+      localStorage.setItem(KEYBOARD_LAYOUT_KEY, state.keyboardLayout);
+      state.multiTap = { key: "", row: -1, col: -1, index: 0, at: 0 };
+      state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
+      makeKeyboard();
     });
     leaveRoomButton.addEventListener("click", leaveRoom);
     chatSendButton.addEventListener("click", sendChat);
