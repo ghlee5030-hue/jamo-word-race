@@ -491,6 +491,7 @@
       color: #cbd3da;
       line-height: 1.55;
       word-break: keep-all;
+      white-space: pre-line;
     }
 
     .name-form {
@@ -1582,7 +1583,10 @@
 
     function openResult(won) {
       const tries = state.guesses.length;
-      recordGame(won);
+      const opponent = roomState.joined && roomState.players.length === 2
+        ? roomState.players.find((player) => player.id !== roomState.playerId)
+        : null;
+      recordGame(won, opponent?.name || "");
       sendRoomResult(won, tries);
       resultTitle.textContent = won ? "정답!" : "아쉽다!";
       resultText.textContent = won
@@ -1626,7 +1630,7 @@
     }
 
     function emptyStats() {
-      return { wins: 0, losses: 0, streak: 0, bestStreak: 0, played: 0 };
+      return { wins: 0, losses: 0, streak: 0, bestStreak: 0, played: 0, versus: {} };
     }
 
     function getCurrentStats() {
@@ -1647,11 +1651,12 @@
       statRate.textContent = getWinRate(stats);
     }
 
-    function recordGame(won) {
+    function recordGame(won, opponentName = "") {
       if (state.recorded || !state.nickname) return;
       state.recorded = true;
       const allStats = loadAllStats();
       const stats = allStats[state.nickname] || emptyStats();
+      stats.versus = stats.versus || {};
       stats.played += 1;
       if (won) {
         stats.wins += 1;
@@ -1661,9 +1666,27 @@
         stats.losses += 1;
         stats.streak = 0;
       }
+      if (opponentName) {
+        const versus = stats.versus[opponentName] || { wins: 0, losses: 0, played: 0 };
+        versus.played += 1;
+        if (won) {
+          versus.wins += 1;
+        } else {
+          versus.losses += 1;
+        }
+        stats.versus[opponentName] = versus;
+      }
       allStats[state.nickname] = stats;
       saveAllStats(allStats);
       updateStatsView();
+    }
+
+    function getHeadToHeadText(opponentName) {
+      if (!opponentName) return "";
+      const stats = getCurrentStats();
+      const versus = stats.versus?.[opponentName];
+      if (!versus || !versus.played) return `상대전적: ${opponentName}님과 첫 대결`;
+      return `상대전적: ${opponentName}님 상대 ${versus.wins}승 ${versus.losses}패`;
     }
 
     function setNickname(name) {
@@ -1965,18 +1988,30 @@
       const me = players.find((player) => player.id === roomState.playerId);
       const winner = players.find((player) => player.result === "win");
       const won = me?.result === "win";
+      const winners = players.filter((player) => player.result === "win").map((player) => player.name);
+      const losers = players.filter((player) => player.result === "loss").map((player) => player.name);
+      const opponent = players.length === 2 ? players.find((player) => player.id !== roomState.playerId) : null;
       state.done = true;
-      recordGame(won);
+      recordGame(won, opponent?.name || "");
       countdownOverlay.hidden = true;
       resultTitle.textContent = won ? "승리!" : "패배!";
+      const lines = [
+        `승리: ${winners.length ? winners.join(", ") : "없음"}`,
+        `패배: ${losers.length ? losers.join(", ") : "없음"}`
+      ];
+      if (players.length === 2 && opponent) {
+        lines.push(getHeadToHeadText(opponent.name));
+      }
       if (won) {
         const tries = me?.tries || state.guesses.length || 1;
-        resultText.textContent = `${state.nickname}님이 ${tries}번 만에 가장 먼저 맞췄어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+        lines.push(`${state.nickname}님이 ${tries}번 만에 가장 먼저 맞췄어요.`);
       } else if (winner) {
-        resultText.textContent = `${winner.name}님이 먼저 맞췄어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+        lines.push(`${winner.name}님이 먼저 맞췄어요.`);
       } else {
-        resultText.textContent = `시간 안에 맞춘 사람이 없어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+        lines.push("시간 안에 맞춘 사람이 없어요.");
       }
+      lines.push(`정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`);
+      resultText.textContent = lines.join("\n");
       resultPanel.hidden = false;
     }
 
