@@ -22,6 +22,7 @@
 
     :root {
       --max-guesses: 5;
+      --word-length: 5;
     }
 
     * {
@@ -211,6 +212,18 @@
       outline: 0;
     }
 
+    .length-select {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 9px;
+      color: var(--ink);
+      background: var(--panel-2);
+      font: inherit;
+      font-weight: 850;
+      outline: 0;
+    }
+
     .chat-box {
       display: grid;
       gap: 7px;
@@ -323,12 +336,12 @@
       grid-template-rows: repeat(5, 1fr);
       gap: 8px;
       width: min(92vw, 470px);
-      aspect-ratio: 5 / 5.15;
+      aspect-ratio: var(--word-length) / 5.15;
     }
 
     .row {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(var(--word-length), 1fr);
       gap: 8px;
     }
 
@@ -392,20 +405,37 @@
       transform: translateY(0);
     }
 
+    .keyboard-tray {
+      position: relative;
+      z-index: 4;
+      display: grid;
+      gap: 6px;
+      will-change: transform;
+    }
+
+    .keyboard-handle {
+      justify-self: center;
+      min-height: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 3px 10px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+      font-weight: 850;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .keyboard-handle.dragging {
+      cursor: grabbing;
+    }
+
     .keyboard {
       display: grid;
       gap: 7px;
       padding-bottom: env(safe-area-inset-bottom);
-      position: relative;
-      z-index: 4;
-      cursor: grab;
-      touch-action: none;
-      user-select: none;
-      will-change: transform;
-    }
-
-    .keyboard.dragging {
-      cursor: grabbing;
     }
 
     .key-row {
@@ -647,6 +677,10 @@
           <button class="mini-button" id="createRoomButton">방 만들기</button>
           <input class="room-input" id="roomCodeInput" maxlength="6" placeholder="방 코드">
           <button class="mini-button" id="joinRoomButton">입장</button>
+          <select class="length-select" id="wordLengthSelect" title="낱자 수" aria-label="낱자 수" hidden>
+            <option value="5">5낱자</option>
+            <option value="6">6낱자</option>
+          </select>
           <button class="mini-button" id="readyButton" hidden>준비</button>
           <button class="mini-button" id="startRoomButton" hidden>같이 시작</button>
           <button class="mini-button" id="leaveRoomButton" hidden>나가기</button>
@@ -669,13 +703,16 @@
       <div class="meta">
         <span class="chip" id="tryCount">1 / 5</span>
         <span class="chip timer-chip" id="roundClock" hidden>3:30</span>
-        <span>사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
+        <span id="guideText">사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </section>
 
-    <section class="keyboard" id="keyboard" aria-label="화면 키보드"></section>
+    <div class="keyboard-tray" id="keyboardTray">
+      <div class="keyboard-handle" id="keyboardHandle" role="button" aria-label="키보드 이동">키보드 이동</div>
+      <section class="keyboard" id="keyboard" aria-label="화면 키보드"></section>
+    </div>
     <div class="ad-slot" aria-label="advertisement">
       <span>&#44305;&#44256;</span>
       <ins class="kakao_ad_area" style="display:none;"
@@ -688,7 +725,7 @@
   <section class="panel" id="helpPanel">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
       <h2 id="helpTitle">맞추는 법</h2>
-      <p>정답은 사전 표제어이고, 그 단어를 자음과 모음 5개 조각으로 풀어 맞힙니다. 제출은 내장 사전과 온라인 표제어 확인을 통과한 조합만 인정합니다.</p>
+      <p>정답은 사전 표제어이고, 그 단어를 자음과 모음 5개 또는 6개 조각으로 풀어 맞힙니다. 제출은 내장 사전과 온라인 표제어 확인을 통과한 조합만 인정합니다.</p>
       <p>예를 들어 <strong>의자</strong>는 아래처럼 입력하고, <strong>바퀴</strong>는 ㅂ ㅏ ㅋ ㅜ ㅣ로 입력해요. 쌍자음은 ㄲ 대신 ㄱ ㄱ처럼 두 번 입력합니다.</p>
       <div class="example" aria-label="의자 예시">
         <span class="example-tile">ㅇ</span>
@@ -735,7 +772,7 @@
 
   <script async type="text/javascript" src="https://t1.kakaocdn.net/kas/static/ba.min.js"></script>
   <script>
-    const ANSWERS = [
+    const ANSWERS_5 = [
       { word: "가게", jamo: ["ㄱ", "ㅏ", "ㄱ", "ㅓ", "ㅣ"] },
       { word: "가격", jamo: ["ㄱ", "ㅏ", "ㄱ", "ㅕ", "ㄱ"] },
       { word: "가락", jamo: ["ㄱ", "ㅏ", "ㄹ", "ㅏ", "ㄱ"] },
@@ -1144,6 +1181,114 @@
       { word: "후회", jamo: ["ㅎ", "ㅜ", "ㅎ", "ㅗ", "ㅣ"] }
     ];
 
+    const ANSWERS_6 = [
+      { word: "가나다", jamo: ["ㄱ", "ㅏ", "ㄴ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "가로수", jamo: ["ㄱ", "ㅏ", "ㄹ", "ㅗ", "ㅅ", "ㅜ"] },
+      { word: "가르마", jamo: ["ㄱ", "ㅏ", "ㄹ", "ㅡ", "ㅁ", "ㅏ"] },
+      { word: "가시나", jamo: ["ㄱ", "ㅏ", "ㅅ", "ㅣ", "ㄴ", "ㅏ"] },
+      { word: "가이드", jamo: ["ㄱ", "ㅏ", "ㅇ", "ㅣ", "ㄷ", "ㅡ"] },
+      { word: "가하다", jamo: ["ㄱ", "ㅏ", "ㅎ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "거두다", jamo: ["ㄱ", "ㅓ", "ㄷ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "거치다", jamo: ["ㄱ", "ㅓ", "ㅊ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "겨누다", jamo: ["ㄱ", "ㅕ", "ㄴ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "겨루다", jamo: ["ㄱ", "ㅕ", "ㄹ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "고구마", jamo: ["ㄱ", "ㅗ", "ㄱ", "ㅜ", "ㅁ", "ㅏ"] },
+      { word: "고라니", jamo: ["ㄱ", "ㅗ", "ㄹ", "ㅏ", "ㄴ", "ㅣ"] },
+      { word: "고사리", jamo: ["ㄱ", "ㅗ", "ㅅ", "ㅏ", "ㄹ", "ㅣ"] },
+      { word: "고요히", jamo: ["ㄱ", "ㅗ", "ㅇ", "ㅛ", "ㅎ", "ㅣ"] },
+      { word: "고치다", jamo: ["ㄱ", "ㅗ", "ㅊ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "고하다", jamo: ["ㄱ", "ㅗ", "ㅎ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "교도소", jamo: ["ㄱ", "ㅛ", "ㄷ", "ㅗ", "ㅅ", "ㅗ"] },
+      { word: "구하다", jamo: ["ㄱ", "ㅜ", "ㅎ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "그러다", jamo: ["ㄱ", "ㅡ", "ㄹ", "ㅓ", "ㄷ", "ㅏ"] },
+      { word: "그리다", jamo: ["ㄱ", "ㅡ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "기러기", jamo: ["ㄱ", "ㅣ", "ㄹ", "ㅓ", "ㄱ", "ㅣ"] },
+      { word: "나가다", jamo: ["ㄴ", "ㅏ", "ㄱ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "나누다", jamo: ["ㄴ", "ㅏ", "ㄴ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "나르다", jamo: ["ㄴ", "ㅏ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "나머지", jamo: ["ㄴ", "ㅏ", "ㅁ", "ㅓ", "ㅈ", "ㅣ"] },
+      { word: "나서다", jamo: ["ㄴ", "ㅏ", "ㅅ", "ㅓ", "ㄷ", "ㅏ"] },
+      { word: "나아가", jamo: ["ㄴ", "ㅏ", "ㅇ", "ㅏ", "ㄱ", "ㅏ"] },
+      { word: "느리다", jamo: ["ㄴ", "ㅡ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "다가가", jamo: ["ㄷ", "ㅏ", "ㄱ", "ㅏ", "ㄱ", "ㅏ"] },
+      { word: "다니다", jamo: ["ㄷ", "ㅏ", "ㄴ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "다치다", jamo: ["ㄷ", "ㅏ", "ㅊ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "다하다", jamo: ["ㄷ", "ㅏ", "ㅎ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "도라지", jamo: ["ㄷ", "ㅗ", "ㄹ", "ㅏ", "ㅈ", "ㅣ"] },
+      { word: "도우미", jamo: ["ㄷ", "ㅗ", "ㅇ", "ㅜ", "ㅁ", "ㅣ"] },
+      { word: "도토리", jamo: ["ㄷ", "ㅗ", "ㅌ", "ㅗ", "ㄹ", "ㅣ"] },
+      { word: "드라마", jamo: ["ㄷ", "ㅡ", "ㄹ", "ㅏ", "ㅁ", "ㅏ"] },
+      { word: "드리다", jamo: ["ㄷ", "ㅡ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "마르다", jamo: ["ㅁ", "ㅏ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "마무리", jamo: ["ㅁ", "ㅏ", "ㅁ", "ㅜ", "ㄹ", "ㅣ"] },
+      { word: "마시다", jamo: ["ㅁ", "ㅏ", "ㅅ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "마이다", jamo: ["ㅁ", "ㅏ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "모이다", jamo: ["ㅁ", "ㅗ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "모자라", jamo: ["ㅁ", "ㅗ", "ㅈ", "ㅏ", "ㄹ", "ㅏ"] },
+      { word: "미루다", jamo: ["ㅁ", "ㅣ", "ㄹ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "바가지", jamo: ["ㅂ", "ㅏ", "ㄱ", "ㅏ", "ㅈ", "ㅣ"] },
+      { word: "바구니", jamo: ["ㅂ", "ㅏ", "ㄱ", "ㅜ", "ㄴ", "ㅣ"] },
+      { word: "바나나", jamo: ["ㅂ", "ㅏ", "ㄴ", "ㅏ", "ㄴ", "ㅏ"] },
+      { word: "바라다", jamo: ["ㅂ", "ㅏ", "ㄹ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "바르다", jamo: ["ㅂ", "ㅏ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "바치다", jamo: ["ㅂ", "ㅏ", "ㅊ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "버리다", jamo: ["ㅂ", "ㅓ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "버티다", jamo: ["ㅂ", "ㅓ", "ㅌ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "보이다", jamo: ["ㅂ", "ㅗ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "부르다", jamo: ["ㅂ", "ㅜ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "부치다", jamo: ["ㅂ", "ㅜ", "ㅊ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "비키다", jamo: ["ㅂ", "ㅣ", "ㅋ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "사거리", jamo: ["ㅅ", "ㅏ", "ㄱ", "ㅓ", "ㄹ", "ㅣ"] },
+      { word: "사다리", jamo: ["ㅅ", "ㅏ", "ㄷ", "ㅏ", "ㄹ", "ㅣ"] },
+      { word: "사이다", jamo: ["ㅅ", "ㅏ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "소나기", jamo: ["ㅅ", "ㅗ", "ㄴ", "ㅏ", "ㄱ", "ㅣ"] },
+      { word: "스미다", jamo: ["ㅅ", "ㅡ", "ㅁ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "시키다", jamo: ["ㅅ", "ㅣ", "ㅋ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "아버지", jamo: ["ㅇ", "ㅏ", "ㅂ", "ㅓ", "ㅈ", "ㅣ"] },
+      { word: "아프다", jamo: ["ㅇ", "ㅏ", "ㅍ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "어기다", jamo: ["ㅇ", "ㅓ", "ㄱ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "어리다", jamo: ["ㅇ", "ㅓ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "어머니", jamo: ["ㅇ", "ㅓ", "ㅁ", "ㅓ", "ㄴ", "ㅣ"] },
+      { word: "여리다", jamo: ["ㅇ", "ㅕ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "여우비", jamo: ["ㅇ", "ㅕ", "ㅇ", "ㅜ", "ㅂ", "ㅣ"] },
+      { word: "오가다", jamo: ["ㅇ", "ㅗ", "ㄱ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "오르다", jamo: ["ㅇ", "ㅗ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "오이지", jamo: ["ㅇ", "ㅗ", "ㅇ", "ㅣ", "ㅈ", "ㅣ"] },
+      { word: "오히려", jamo: ["ㅇ", "ㅗ", "ㅎ", "ㅣ", "ㄹ", "ㅕ"] },
+      { word: "우기다", jamo: ["ㅇ", "ㅜ", "ㄱ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "이기다", jamo: ["ㅇ", "ㅣ", "ㄱ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "이르다", jamo: ["ㅇ", "ㅣ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "이리로", jamo: ["ㅇ", "ㅣ", "ㄹ", "ㅣ", "ㄹ", "ㅗ"] },
+      { word: "이야기", jamo: ["ㅇ", "ㅣ", "ㅇ", "ㅑ", "ㄱ", "ㅣ"] },
+      { word: "이어서", jamo: ["ㅇ", "ㅣ", "ㅇ", "ㅓ", "ㅅ", "ㅓ"] },
+      { word: "자라다", jamo: ["ㅈ", "ㅏ", "ㄹ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "자르다", jamo: ["ㅈ", "ㅏ", "ㄹ", "ㅡ", "ㄷ", "ㅏ"] },
+      { word: "저마다", jamo: ["ㅈ", "ㅓ", "ㅁ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "조리사", jamo: ["ㅈ", "ㅗ", "ㄹ", "ㅣ", "ㅅ", "ㅏ"] },
+      { word: "조이다", jamo: ["ㅈ", "ㅗ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "주리다", jamo: ["ㅈ", "ㅜ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "주머니", jamo: ["ㅈ", "ㅜ", "ㅁ", "ㅓ", "ㄴ", "ㅣ"] },
+      { word: "지나다", jamo: ["ㅈ", "ㅣ", "ㄴ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "지우다", jamo: ["ㅈ", "ㅣ", "ㅇ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "지키다", jamo: ["ㅈ", "ㅣ", "ㅋ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "차리다", jamo: ["ㅊ", "ㅏ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "차이다", jamo: ["ㅊ", "ㅏ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "치우다", jamo: ["ㅊ", "ㅣ", "ㅇ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "커지다", jamo: ["ㅋ", "ㅓ", "ㅈ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "키우다", jamo: ["ㅋ", "ㅣ", "ㅇ", "ㅜ", "ㄷ", "ㅏ"] },
+      { word: "타이다", jamo: ["ㅌ", "ㅏ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "타자기", jamo: ["ㅌ", "ㅏ", "ㅈ", "ㅏ", "ㄱ", "ㅣ"] },
+      { word: "토하다", jamo: ["ㅌ", "ㅗ", "ㅎ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "파이다", jamo: ["ㅍ", "ㅏ", "ㅇ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "파하다", jamo: ["ㅍ", "ㅏ", "ㅎ", "ㅏ", "ㄷ", "ㅏ"] },
+      { word: "퍼지다", jamo: ["ㅍ", "ㅓ", "ㅈ", "ㅣ", "ㄷ", "ㅏ"] },
+      { word: "피아노", jamo: ["ㅍ", "ㅣ", "ㅇ", "ㅏ", "ㄴ", "ㅗ"] },
+      { word: "피우다", jamo: ["ㅍ", "ㅣ", "ㅇ", "ㅜ", "ㄷ", "ㅏ"] }
+    ];
+
+    const ANSWERS_BY_LENGTH = { 5: ANSWERS_5, 6: ANSWERS_6 };
+    const ANSWERS = ANSWERS_5;
+
     const EXTRA_ENCYCLOPEDIA_ENTRIES = [
       "가위", "가을", "가지", "감자", "강물", "거울", "고래", "고추", "과자", "구름",
       "기차", "김치", "나무", "나비", "나라", "노을", "다리", "단추", "달빛", "도시",
@@ -1213,6 +1358,8 @@
 
     const board = document.getElementById("board");
     const keyboard = document.getElementById("keyboard");
+    const keyboardTray = document.getElementById("keyboardTray");
+    const keyboardHandle = document.getElementById("keyboardHandle");
     const toast = document.getElementById("toast");
     const tryCount = document.getElementById("tryCount");
     const roundClock = document.getElementById("roundClock");
@@ -1231,6 +1378,7 @@
     const roomStatus = document.getElementById("roomStatus");
     const roomPlayers = document.getElementById("roomPlayers");
     const roomCodeInput = document.getElementById("roomCodeInput");
+    const wordLengthSelect = document.getElementById("wordLengthSelect");
     const createRoomButton = document.getElementById("createRoomButton");
     const joinRoomButton = document.getElementById("joinRoomButton");
     const readyButton = document.getElementById("readyButton");
@@ -1241,14 +1389,17 @@
     const chatInput = document.getElementById("chatInput");
     const chatSendButton = document.getElementById("chatSendButton");
     const countdownOverlay = document.getElementById("countdownOverlay");
+    const guideText = document.getElementById("guideText");
 
     const STORAGE_KEY = "jamo-word-game-profile";
     const STATS_KEY = "jamo-word-game-stats";
     const ROOM_SESSION_KEY = "jamo-word-game-room-session";
     const MAX_GUESSES = 5;
+    const DEFAULT_WORD_LENGTH = 5;
 
     const state = {
       answer: ANSWERS[0],
+      wordLength: DEFAULT_WORD_LENGTH,
       row: 0,
       col: 0,
       done: false,
@@ -1267,6 +1418,7 @@
       started: false,
       eventSource: null,
       players: [],
+      wordLength: DEFAULT_WORD_LENGTH,
       endsAt: 0,
       countdownTimer: null,
       roundTimer: null
@@ -1286,11 +1438,26 @@
       rect: null
     };
 
-    function pickAnswer(previousWord = "") {
-      if (ANSWERS.length <= 1) return ANSWERS[0];
-      let answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+    function getAnswersForLength(length = state.wordLength) {
+      return ANSWERS_BY_LENGTH[length] || ANSWERS_BY_LENGTH[DEFAULT_WORD_LENGTH];
+    }
+
+    function setWordLength(length) {
+      const nextLength = Number(length) === 6 ? 6 : 5;
+      state.wordLength = nextLength;
+      roomState.wordLength = nextLength;
+      document.documentElement.style.setProperty("--word-length", String(nextLength));
+      wordLengthSelect.value = String(nextLength);
+      guideText.textContent = `사전 표제어를 자음과 모음 ${nextLength}칸으로 입력하세요`;
+      updateTryCount();
+    }
+
+    function pickAnswer(previousWord = "", length = state.wordLength) {
+      const list = getAnswersForLength(length);
+      if (list.length <= 1) return list[0];
+      let answer = list[Math.floor(Math.random() * list.length)];
       while (answer.word === previousWord) {
-        answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+        answer = list[Math.floor(Math.random() * list.length)];
       }
       return answer;
     }
@@ -1300,7 +1467,7 @@
       for (let r = 0; r < MAX_GUESSES; r += 1) {
         const row = document.createElement("div");
         row.className = "row";
-        for (let c = 0; c < 5; c += 1) {
+        for (let c = 0; c < state.wordLength; c += 1) {
           const tile = document.createElement("div");
           tile.className = "tile";
           tile.dataset.row = r;
@@ -1329,7 +1496,7 @@
       }
     }
 
-    function setKeyboardOffset(x, y, baseRect = keyboard.getBoundingClientRect(), baseX = keyboardDrag.offsetX, baseY = keyboardDrag.offsetY) {
+    function setKeyboardOffset(x, y, baseRect = keyboardTray.getBoundingClientRect(), baseX = keyboardDrag.offsetX, baseY = keyboardDrag.offsetY) {
       const margin = 8;
       let nextX = x;
       let nextY = y;
@@ -1343,11 +1510,11 @@
 
       keyboardDrag.offsetX = nextX;
       keyboardDrag.offsetY = nextY;
-      keyboard.style.transform = `translate(${Math.round(nextX)}px, ${Math.round(nextY)}px)`;
+      keyboardTray.style.transform = `translate(${Math.round(nextX)}px, ${Math.round(nextY)}px)`;
     }
 
     function enableKeyboardDrag() {
-      keyboard.addEventListener("pointerdown", (event) => {
+      keyboardHandle.addEventListener("pointerdown", (event) => {
         if (event.button !== undefined && event.button !== 0) return;
         keyboardDrag.active = true;
         keyboardDrag.moved = false;
@@ -1356,12 +1523,12 @@
         keyboardDrag.startY = event.clientY;
         keyboardDrag.startOffsetX = keyboardDrag.offsetX;
         keyboardDrag.startOffsetY = keyboardDrag.offsetY;
-        keyboardDrag.rect = keyboard.getBoundingClientRect();
-        keyboard.classList.add("dragging");
-        keyboard.setPointerCapture?.(event.pointerId);
+        keyboardDrag.rect = keyboardTray.getBoundingClientRect();
+        keyboardHandle.classList.add("dragging");
+        keyboardHandle.setPointerCapture?.(event.pointerId);
       });
 
-      keyboard.addEventListener("pointermove", (event) => {
+      keyboardHandle.addEventListener("pointermove", (event) => {
         if (!keyboardDrag.active || event.pointerId !== keyboardDrag.pointerId) return;
         const dx = event.clientX - keyboardDrag.startX;
         const dy = event.clientY - keyboardDrag.startY;
@@ -1380,8 +1547,8 @@
       function stopDrag(event) {
         if (!keyboardDrag.active || event.pointerId !== keyboardDrag.pointerId) return;
         keyboardDrag.active = false;
-        keyboard.classList.remove("dragging");
-        keyboard.releasePointerCapture?.(event.pointerId);
+        keyboardHandle.classList.remove("dragging");
+        keyboardHandle.releasePointerCapture?.(event.pointerId);
         if (keyboardDrag.moved) {
           keyboardDrag.suppressClick = true;
           window.setTimeout(() => {
@@ -1390,9 +1557,9 @@
         }
       }
 
-      keyboard.addEventListener("pointerup", stopDrag);
-      keyboard.addEventListener("pointercancel", stopDrag);
-      keyboard.addEventListener("click", (event) => {
+      keyboardHandle.addEventListener("pointerup", stopDrag);
+      keyboardHandle.addEventListener("pointercancel", stopDrag);
+      keyboardHandle.addEventListener("click", (event) => {
         if (!keyboardDrag.suppressClick) return;
         event.preventDefault();
         event.stopPropagation();
@@ -1408,6 +1575,7 @@
     }
 
     function reset(answerOverride = null) {
+      if (isAnswer(answerOverride)) setWordLength(answerOverride.jamo.length);
       state.answer = isAnswer(answerOverride) ? answerOverride : pickAnswer(state.answer?.word);
       state.row = 0;
       state.col = 0;
@@ -1447,7 +1615,7 @@
     }
 
     function addJamo(jamo) {
-      if (state.done || state.col >= 5 || !VALID_JAMO.has(jamo)) return;
+      if (state.done || state.col >= state.wordLength || !VALID_JAMO.has(jamo)) return;
       const tile = board.querySelector(`[data-row="${state.row}"][data-col="${state.col}"]`);
       tile.textContent = jamo;
       tile.classList.add("filled", "pop");
@@ -1474,8 +1642,8 @@
         return;
       }
       const guess = currentGuess();
-      if (guess.length !== 5) {
-        rejectRow("다섯 칸을 모두 채우세요");
+      if (guess.length !== state.wordLength) {
+        rejectRow(`${state.wordLength}칸을 모두 채우세요`);
         return;
       }
 
@@ -1516,17 +1684,17 @@
     }
 
     function scoreGuess(guess, answer) {
-      const result = Array(5).fill("absent");
-      const used = Array(5).fill(false);
+      const result = Array(answer.length).fill("absent");
+      const used = Array(answer.length).fill(false);
 
-      for (let i = 0; i < 5; i += 1) {
+      for (let i = 0; i < answer.length; i += 1) {
         if (guess[i] === answer[i]) {
           result[i] = "correct";
           used[i] = true;
         }
       }
 
-      for (let i = 0; i < 5; i += 1) {
+      for (let i = 0; i < answer.length; i += 1) {
         if (result[i] === "correct") continue;
         const found = answer.findIndex((jamo, index) => !used[index] && jamo === guess[i]);
         if (found >= 0) {
@@ -1858,6 +2026,7 @@
       roomState.started = data.started;
       roomState.endsAt = data.endsAt || 0;
       roomState.players = data.players || [];
+      if (!roomState.started && data.wordLength) setWordLength(data.wordLength);
       updateRoundClock();
       if (wasStarted && !roomState.started) {
         stopRoundTimer();
@@ -1883,6 +2052,8 @@
       roomCodeInput.hidden = true;
       readyButton.hidden = false;
       startRoomButton.hidden = !isHost;
+      wordLengthSelect.hidden = false;
+      wordLengthSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
       leaveRoomButton.hidden = false;
       readyButton.textContent = me?.ready ? "준비 완료" : "준비";
       startRoomButton.disabled = !isHost || count < 2 || count > 5 || roomState.started;
@@ -1914,7 +2085,7 @@
     async function startRoomGame() {
       if (!roomState.joined) return;
       try {
-        await apiPost("/api/start", { room: roomState.room, playerId: roomState.playerId });
+        await apiPost("/api/start", { room: roomState.room, playerId: roomState.playerId, wordLength: Number(wordLengthSelect.value) || 5 });
       } catch (error) {
         showToast(error.message);
       }
@@ -2085,6 +2256,7 @@
       roomState.endsAt = 0;
       if (roomState.countdownTimer) window.clearInterval(roomState.countdownTimer);
       if (roomState.roundTimer) window.clearInterval(roomState.roundTimer);
+      setWordLength(DEFAULT_WORD_LENGTH);
       countdownOverlay.hidden = true;
       roomStatus.textContent = "혼자 하기";
       roomPlayers.hidden = true;
@@ -2096,6 +2268,7 @@
       roomCodeInput.hidden = false;
       readyButton.hidden = true;
       startRoomButton.hidden = true;
+      wordLengthSelect.hidden = true;
       leaveRoomButton.hidden = true;
       clearRoomSession();
       history.replaceState(null, "", getShareUrl());
@@ -2274,11 +2447,14 @@
 
     function buildEncyclopedia() {
       const map = new Map();
-      const words = new Set([...ANSWERS.map((answer) => answer.word), ...EXTRA_ENCYCLOPEDIA_ENTRIES]);
+      const words = new Set([
+        ...Object.values(ANSWERS_BY_LENGTH).flat().map((answer) => answer.word),
+        ...EXTRA_ENCYCLOPEDIA_ENTRIES
+      ]);
 
       for (const word of words) {
         const jamo = decomposeText(word);
-        if (jamo.length !== 5) continue;
+        if (jamo.length < 5 || jamo.length > 6) continue;
         const key = jamo.join("");
         const list = map.get(key) || [];
         list.push(word);
@@ -2338,6 +2514,9 @@
     joinRoomButton.addEventListener("click", () => joinRoom());
     readyButton.addEventListener("click", toggleReady);
     startRoomButton.addEventListener("click", startRoomGame);
+    wordLengthSelect.addEventListener("change", () => {
+      if (!roomState.started) setWordLength(wordLengthSelect.value);
+    });
     leaveRoomButton.addEventListener("click", leaveRoom);
     chatSendButton.addEventListener("click", sendChat);
     chatInput.addEventListener("keydown", (event) => {
@@ -2358,6 +2537,7 @@
       state.nickname = "손님";
       openProfilePanel();
     }
+    setWordLength(DEFAULT_WORD_LENGTH);
     enableKeyboardDrag();
     updateStatsView();
     reset();

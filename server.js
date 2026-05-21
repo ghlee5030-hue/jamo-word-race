@@ -5,8 +5,11 @@ const crypto = require("crypto");
 
 const root = __dirname;
 const rooms = new Map();
+const rateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
+const RATE_LIMIT_WINDOW_MS = 60000;
+const RATE_LIMIT_MAX = 90;
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -20,14 +23,21 @@ const securityHeaders = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"
 };
 
-function loadAnswers() {
-  const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  const block = html.match(/const ANSWERS = \[([\s\S]*?)\];/);
-  if (!block) throw new Error("ANSWERS not found in index.html");
+function parseAnswerBlock(html, name) {
+  const block = html.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`));
+  if (!block) throw new Error(`${name} not found in index.html`);
   return [...block[1].matchAll(/word: "([^"]+)", jamo: \[([^\]]+)\]/g)].map((match) => ({
     word: match[1],
     jamo: [...match[2].matchAll(/"([^"]+)"/g)].map((item) => item[1])
   }));
+}
+
+function loadAnswers() {
+  const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  return {
+    5: parseAnswerBlock(html, "ANSWERS_5"),
+    6: parseAnswerBlock(html, "ANSWERS_6")
+  };
 }
 
 const answers = loadAnswers();
@@ -35,6 +45,23 @@ const answers = loadAnswers();
 function sendJson(res, status, body) {
   res.writeHead(status, { ...securityHeaders, "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
+}
+
+function getClientIp(req) {
+  return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+}
+
+function isRateLimited(req) {
+  const now = Date.now();
+  const key = getClientIp(req);
+  const bucket = rateBuckets.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+  if (bucket.resetAt <= now) {
+    bucket.count = 0;
+    bucket.resetAt = now + RATE_LIMIT_WINDOW_MS;
+  }
+  bucket.count += 1;
+  rateBuckets.set(key, bucket);
+  return bucket.count > RATE_LIMIT_MAX;
 }
 
 function readJson(req) {
@@ -81,6 +108,7 @@ function publicState(room) {
     started: room.started,
     countdownUntil: room.countdownUntil,
     endsAt: room.endsAt,
+    wordLength: room.wordLength,
     players: [...room.players.values()].map((player) => ({
       id: player.id,
       name: player.name,
@@ -154,11 +182,12 @@ function requirePlayer(room, playerId) {
   return player;
 }
 
-function pickAnswer(previousWord = "") {
-  if (answers.length <= 1) return answers[0];
-  let answer = answers[Math.floor(Math.random() * answers.length)];
+function pickAnswer(previousWord = "", wordLength = 5) {
+  const list = answers[wordLength] || answers[5];
+  if (list.length <= 1) return list[0];
+  let answer = list[Math.floor(Math.random() * list.length)];
   while (answer.word === previousWord) {
-    answer = answers[Math.floor(Math.random() * answers.length)];
+    answer = list[Math.floor(Math.random() * list.length)];
   }
   return answer;
 }
@@ -178,6 +207,7 @@ async function handleApi(req, res, pathname) {
         started: false,
         answer: null,
         previousWord: "",
+        wordLength: 5,
         countdownUntil: 0,
         endsAt: 0,
         timer: null,
@@ -226,7 +256,8 @@ async function handleApi(req, res, pathname) {
       if (room.players.size > 5) throw new Error("최대 5명까지 플레이할 수 있어요");
       const everyoneReady = [...room.players.values()].every((player) => player.ready || player.id === room.hostId);
       if (!everyoneReady) throw new Error("아직 준비하지 않은 사람이 있어요");
-      room.answer = pickAnswer(room.previousWord);
+      room.wordLength = Number(body.wordLength) === 6 ? 6 : 5;
+      room.answer = pickAnswer(room.previousWord, room.wordLength);
       room.previousWord = room.answer.word;
       room.started = false;
       room.countdownUntil = Date.now() + COUNTDOWN_MS;
@@ -338,6 +369,10 @@ function serveFile(req, res, pathname) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (req.method === "POST" && url.pathname.startsWith("/api/")) {
+    if (isRateLimited(req)) {
+      sendJson(res, 429, { error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요" });
+      return;
+    }
     handleApi(req, res, url.pathname);
     return;
   }
