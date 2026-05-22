@@ -145,6 +145,13 @@ function broadcastState(room) {
   broadcast(room, { type: "state", state: publicState(room) });
 }
 
+function broadcastSystem(room, text) {
+  const message = { id: makePlayerId(), name: "알림", text, at: Date.now(), system: true };
+  room.chat.push(message);
+  room.chat = room.chat.slice(-30);
+  broadcast(room, { type: "chat", message });
+}
+
 function publicRoomList() {
   return [...rooms.values()]
     .filter((room) => !room.started && !room.countdownUntil && room.players.size > 0 && room.players.size < 5)
@@ -157,9 +164,13 @@ function publicRoomList() {
     .sort((a, b) => a.code.localeCompare(b.code));
 }
 
-function removePlayer(room, playerId, reason = "") {
+function removePlayer(room, playerId, options = {}) {
   const player = requirePlayer(room, playerId);
-  sendToPlayer(room, player.id, { type: "kicked", reason: reason || "방에서 나갔어요" });
+  const name = player.name;
+  const kicked = Boolean(options.kicked);
+  const reason = options.reason || (kicked ? "강퇴당했습니다." : "방에서 나갔어요");
+  const notice = options.notice || `${name}님이 ${kicked ? "강퇴당했습니다." : "나가셨습니다."}`;
+  sendToPlayer(room, player.id, { type: kicked ? "kicked" : "left", reason });
   room.players.delete(player.id);
   if (room.players.size === 0) {
     if (room.timer) clearTimeout(room.timer);
@@ -173,6 +184,7 @@ function removePlayer(room, playerId, reason = "") {
     if (host) host.ready = true;
   }
   broadcastState(room);
+  broadcastSystem(room, notice);
 }
 
 function sweepIdlePlayers() {
@@ -182,7 +194,7 @@ function sweepIdlePlayers() {
     for (const player of [...room.players.values()]) {
       if (player.id === room.hostId || player.ready) continue;
       if (now - (player.lastActive || player.joinedAt || now) >= READY_IDLE_KICK_MS) {
-        removePlayer(room, player.id, "30초 동안 준비하지 않아 자동 강퇴됐어요");
+        removePlayer(room, player.id, { kicked: true, reason: "30초 동안 준비하지 않아 자동 강퇴됐어요" });
       }
     }
   }
@@ -312,7 +324,7 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/leave") {
       const room = requireRoom(body.room);
       if (room.started || room.countdownUntil) throw new Error("게임 중에는 나갈 수 없어요");
-      removePlayer(room, body.playerId);
+      removePlayer(room, body.playerId, { reason: "방에서 나갔어요" });
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -324,7 +336,7 @@ async function handleApi(req, res, pathname) {
       if (room.started || room.countdownUntil) throw new Error("게임 중에는 강퇴할 수 없어요");
       const targetId = String(body.targetId || "");
       if (targetId === room.hostId) throw new Error("방장은 강퇴할 수 없어요");
-      removePlayer(room, targetId, "방장이 강퇴했어요");
+      removePlayer(room, targetId, { kicked: true, reason: "방장이 강퇴했어요" });
       sendJson(res, 200, { ok: true });
       return;
     }
