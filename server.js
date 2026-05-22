@@ -6,23 +6,44 @@ const crypto = require("crypto");
 const root = __dirname;
 const rooms = new Map();
 const rateBuckets = new Map();
+const roomCreateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 30000;
 const SSE_KEEPALIVE_MS = 15000;
+const MAX_BODY_BYTES = 10000;
+const MAX_ACTIVE_ROOMS_PER_IP = 5;
+const ROOM_CREATE_WINDOW_MS = 10 * 60000;
+const ROOM_CREATE_MAX = 8;
+const RATE_LIMIT_RULES = {
+  "GET /api/rooms": { windowMs: 10000, max: 30 },
+  "GET /events": { windowMs: 60000, max: 20 },
+  "POST /api/room": { windowMs: 60000, max: 6 },
+  "POST /api/join": { windowMs: 60000, max: 20 },
+  "POST /api/start": { windowMs: 60000, max: 20 },
+  "POST /api/result": { windowMs: 60000, max: 45 },
+  "POST /api/chat": { windowMs: 60000, max: 20 },
+  "POST /api/ready": { windowMs: 60000, max: 30 },
+  "POST /api/leave": { windowMs: 60000, max: 30 },
+  "POST /api/kick": { windowMs: 60000, max: 20 }
+};
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8"
+  ".json": "application/json; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8"
 };
 
 const securityHeaders = {
   "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
 };
 
 function parseAnswerBlock(html, name) {
@@ -45,25 +66,66 @@ function loadAnswers() {
 const answers = loadAnswers();
 
 function sendJson(res, status, body) {
-  res.writeHead(status, { ...securityHeaders, "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(status, { ...securityHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   res.end(JSON.stringify(body));
 }
 
 function getClientIp(req) {
-  return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+  return String(req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
 }
 
-function isRateLimited(req) {
+function consumeBucket(store, key, windowMs, max) {
   const now = Date.now();
-  const key = getClientIp(req);
-  const bucket = rateBuckets.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+  const bucket = store.get(key) || { count: 0, resetAt: now + windowMs };
   if (bucket.resetAt <= now) {
     bucket.count = 0;
-    bucket.resetAt = now + RATE_LIMIT_WINDOW_MS;
+    bucket.resetAt = now + windowMs;
   }
   bucket.count += 1;
-  rateBuckets.set(key, bucket);
-  return bucket.count > RATE_LIMIT_MAX;
+  store.set(key, bucket);
+  return bucket.count > max;
+}
+
+function isRateLimited(req, pathname) {
+  const rule = RATE_LIMIT_RULES[`${req.method} ${pathname}`] || { windowMs: RATE_LIMIT_WINDOW_MS, max: RATE_LIMIT_MAX };
+  return consumeBucket(rateBuckets, `${getClientIp(req)}:${req.method}:${pathname}`, rule.windowMs, rule.max);
+}
+
+function isOriginAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeRoomCode(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+}
+
+function clampTries(value) {
+  const tries = Number(value);
+  if (!Number.isFinite(tries)) return 0;
+  return Math.max(0, Math.min(5, Math.floor(tries)));
+}
+
+function countActiveRoomsForIp(ip) {
+  let count = 0;
+  for (const room of rooms.values()) {
+    if (room.ownerIp === ip) count += 1;
+  }
+  return count;
+}
+
+function sweepBuckets() {
+  const now = Date.now();
+  for (const store of [rateBuckets, roomCreateBuckets]) {
+    for (const [key, bucket] of store.entries()) {
+      if (bucket.resetAt <= now) store.delete(key);
+    }
+  }
 }
 
 function readJson(req) {
@@ -71,7 +133,7 @@ function readJson(req) {
     let body = "";
     req.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 10000) {
+      if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
         reject(new Error("요청이 너무 큽니다"));
         req.destroy();
       }
@@ -235,7 +297,7 @@ function finishRound(room) {
 }
 
 function requireRoom(code) {
-  const room = rooms.get(String(code || "").toUpperCase());
+  const room = rooms.get(normalizeRoomCode(code));
   if (!room) throw new Error("방을 찾을 수 없습니다");
   return room;
 }
@@ -258,6 +320,10 @@ function pickAnswer(previousWord = "", wordLength = 5) {
 
 async function handleApi(req, res, pathname) {
   try {
+    if (!isOriginAllowed(req)) {
+      sendJson(res, 403, { error: "허용되지 않은 요청입니다" });
+      return;
+    }
     const body = await readJson(req);
 
     if (pathname === "/api/rooms") {
@@ -266,6 +332,15 @@ async function handleApi(req, res, pathname) {
     }
 
     if (pathname === "/api/room") {
+      const ip = getClientIp(req);
+      if (consumeBucket(roomCreateBuckets, ip, ROOM_CREATE_WINDOW_MS, ROOM_CREATE_MAX)) {
+        sendJson(res, 429, { error: "방을 너무 자주 만들고 있어요. 잠시 후 다시 시도하세요." });
+        return;
+      }
+      if (countActiveRoomsForIp(ip) >= MAX_ACTIVE_ROOMS_PER_IP) {
+        sendJson(res, 429, { error: "한 네트워크에서 만들 수 있는 대기방 수를 넘었어요." });
+        return;
+      }
       const code = makeRoomCode();
       const now = Date.now();
       const player = { id: makePlayerId(), name: cleanName(body.name), ready: true, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
@@ -276,6 +351,7 @@ async function handleApi(req, res, pathname) {
         clients: new Set(),
         started: false,
         answer: null,
+        ownerIp: ip,
         previousWord: "",
         wordLength: 5,
         countdownUntil: 0,
@@ -290,7 +366,7 @@ async function handleApi(req, res, pathname) {
     }
 
     if (pathname === "/api/join") {
-      const room = requireRoom(body.room);
+      const room = requireRoom(normalizeRoomCode(body.room));
       const name = cleanName(body.name);
       const existingPlayer = room.players.get(String(body.playerId || ""));
       if (existingPlayer && existingPlayer.name === name) {
@@ -380,7 +456,7 @@ async function handleApi(req, res, pathname) {
       if (!room.started) throw new Error("아직 시작하지 않았어요");
       if (!player.result) {
         player.result = body.result === "win" ? "win" : "loss";
-        player.tries = Number(body.tries) || 0;
+        player.tries = clampTries(body.tries);
         player.finishedAt = Date.now();
       }
       if (player.result === "win") {
@@ -452,8 +528,14 @@ function handleEvents(req, res, url) {
 function serveFile(req, res, pathname) {
   const safePath = pathname === "/" ? "index.html" : decodeURIComponent(pathname.slice(1));
   const filePath = path.resolve(root, safePath);
-  if (!filePath.startsWith(root)) {
+  const relative = path.relative(root, filePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative) || relative.startsWith(".git") || path.basename(filePath).startsWith(".")) {
     res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+  if (!Object.prototype.hasOwnProperty.call(mimeTypes, path.extname(filePath))) {
+    res.writeHead(403, securityHeaders);
     res.end("Forbidden");
     return;
   }
@@ -463,7 +545,9 @@ function serveFile(req, res, pathname) {
       res.end("Not found");
       return;
     }
-    res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[path.extname(filePath)] || "application/octet-stream" });
+    const ext = path.extname(filePath);
+    const cacheControl = ext === ".html" ? "no-cache" : "public, max-age=3600";
+    res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[ext] || "application/octet-stream", "Cache-Control": cacheControl });
     res.end(content);
   });
 }
@@ -471,11 +555,15 @@ function serveFile(req, res, pathname) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (req.method === "GET" && url.pathname === "/api/rooms") {
+    if (isRateLimited(req, url.pathname)) {
+      sendJson(res, 429, { error: "Too many requests" });
+      return;
+    }
     sendJson(res, 200, { rooms: publicRoomList() });
     return;
   }
   if (req.method === "POST" && url.pathname.startsWith("/api/")) {
-    if (isRateLimited(req)) {
+    if (isRateLimited(req, url.pathname)) {
       sendJson(res, 429, { error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요" });
       return;
     }
@@ -483,6 +571,10 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.method === "GET" && url.pathname === "/events") {
+    if (isRateLimited(req, url.pathname)) {
+      sendJson(res, 429, { error: "Too many requests" });
+      return;
+    }
     handleEvents(req, res, url);
     return;
   }
@@ -496,6 +588,7 @@ const server = http.createServer((req, res) => {
 
 const port = Number(process.env.PORT) || 3000;
 setInterval(sweepIdlePlayers, 5000);
+setInterval(sweepBuckets, 60000);
 server.listen(port, () => {
   console.log(`단어배틀 서버: http://localhost:${port}`);
 });
