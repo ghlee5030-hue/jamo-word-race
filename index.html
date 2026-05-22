@@ -153,7 +153,7 @@
       cursor: pointer;
     }
 
-    .stats {
+    .stats-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 5px;
@@ -181,6 +181,56 @@
       color: var(--muted);
       font-size: 10px;
       font-weight: 800;
+    }
+
+    .stats-grid.compact {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .stats-grid.compact .stat {
+      padding: 10px 8px;
+    }
+
+    .stats-grid.compact .stat strong {
+      font-size: 22px;
+    }
+
+    .versus-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .versus-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #dbe3e9;
+      font-size: 14px;
+    }
+
+    .versus-row strong {
+      color: var(--ink);
+    }
+
+    .section-heading {
+      margin: 18px 0 0;
+      color: var(--ink);
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .empty-state {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
     }
 
     .room-panel {
@@ -823,6 +873,7 @@
       <div class="profile">
         <span class="chip" id="playerName">손님</span>
         <button class="mini-button" id="changeNameButton">닉네임 변경</button>
+        <button class="mini-button" id="statsButton">전적</button>
         <button class="mini-button" id="copyLinkButton">공유 링크 복사</button>
       </div>
       <div class="room-panel" id="roomPanel">
@@ -848,12 +899,6 @@
             <button class="mini-button" id="chatSendButton">전송</button>
           </div>
         </div>
-      </div>
-      <div class="stats" aria-label="플레이어 전적">
-        <div class="stat"><strong id="statWins">0</strong><span>승</span></div>
-        <div class="stat"><strong id="statLosses">0</strong><span>패</span></div>
-        <div class="stat"><strong id="statStreak">0</strong><span>연승</span></div>
-        <div class="stat"><strong id="statRate">0%</strong><span>승률</span></div>
       </div>
       <div class="meta">
         <span class="chip" id="tryCount">1 / 5</span>
@@ -937,6 +982,27 @@
       <div class="name-form">
         <input id="nameInput" maxlength="14" placeholder="닉네임">
         <button class="primary" id="saveNameButton">저장</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="statsPanel" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+      <h2 id="statsTitle">전적</h2>
+      <p id="statsIntro">현재 닉네임 기준으로 이 브라우저에 저장된 기록입니다.</p>
+      <div class="stats-grid compact" aria-label="전체 전적">
+        <div class="stat"><strong id="statWins">0</strong><span>승</span></div>
+        <div class="stat"><strong id="statLosses">0</strong><span>패</span></div>
+        <div class="stat"><strong id="statStreak">0</strong><span>현재 연승</span></div>
+        <div class="stat"><strong id="statBestStreak">0</strong><span>최고 연승</span></div>
+        <div class="stat"><strong id="statRate">0%</strong><span>승률</span></div>
+        <div class="stat"><strong id="statPlayed">0</strong><span>총 판수</span></div>
+      </div>
+      <h3 class="section-heading">1대1 상대전적</h3>
+      <div class="versus-list" id="versusList"></div>
+      <p class="empty-state" id="versusEmpty" hidden>아직 1대1 상대전적이 없어요.</p>
+      <div class="actions">
+        <button class="primary" id="closeStatsButton">닫기</button>
       </div>
     </div>
   </section>
@@ -1573,12 +1639,18 @@
     const resultTitle = document.getElementById("resultTitle");
     const resultText = document.getElementById("resultText");
     const profilePanel = document.getElementById("profilePanel");
+    const statsPanel = document.getElementById("statsPanel");
+    const statsIntro = document.getElementById("statsIntro");
     const playerName = document.getElementById("playerName");
     const nameInput = document.getElementById("nameInput");
     const statWins = document.getElementById("statWins");
     const statLosses = document.getElementById("statLosses");
     const statStreak = document.getElementById("statStreak");
+    const statBestStreak = document.getElementById("statBestStreak");
     const statRate = document.getElementById("statRate");
+    const statPlayed = document.getElementById("statPlayed");
+    const versusList = document.getElementById("versusList");
+    const versusEmpty = document.getElementById("versusEmpty");
     const roomPanel = document.getElementById("roomPanel");
     const roomStatus = document.getElementById("roomStatus");
     const roomPlayers = document.getElementById("roomPlayers");
@@ -2052,7 +2124,20 @@
       statWins.textContent = stats.wins;
       statLosses.textContent = stats.losses;
       statStreak.textContent = stats.streak;
+      statBestStreak.textContent = stats.bestStreak || 0;
       statRate.textContent = getWinRate(stats);
+      statPlayed.textContent = stats.played || 0;
+      statsIntro.textContent = `${state.nickname || "손님"}님의 이 브라우저 저장 기록입니다.`;
+      const versusEntries = Object.entries(stats.versus || {})
+        .filter(([, item]) => item && item.played)
+        .sort((a, b) => (b[1].played || 0) - (a[1].played || 0) || a[0].localeCompare(b[0], "ko"));
+      versusList.innerHTML = versusEntries.map(([name, item]) => `
+        <div class="versus-row">
+          <strong>${escapeHtml(name)}</strong>
+          <span>${item.wins || 0}승 ${item.losses || 0}패</span>
+        </div>
+      `).join("");
+      versusEmpty.hidden = versusEntries.length > 0;
     }
 
     function recordGame(won, opponentName = "") {
@@ -2872,6 +2957,13 @@
     document.getElementById("shareButton").addEventListener("click", copyResult);
     document.getElementById("copyLinkButton").addEventListener("click", copyShareLink);
     document.getElementById("changeNameButton").addEventListener("click", openProfilePanel);
+    document.getElementById("statsButton").addEventListener("click", () => {
+      updateStatsView();
+      statsPanel.hidden = false;
+    });
+    document.getElementById("closeStatsButton").addEventListener("click", () => {
+      statsPanel.hidden = true;
+    });
     document.getElementById("saveNameButton").addEventListener("click", () => setNickname(nameInput.value));
     createRoomButton.addEventListener("click", createRoom);
     joinRoomButton.addEventListener("click", () => joinRoom());
