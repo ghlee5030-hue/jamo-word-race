@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>단어배틀</title>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8960749854738466"
+    crossorigin="anonymous"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -55,6 +57,27 @@
       display: grid;
       grid-template-rows: auto 1fr auto;
       gap: 14px;
+    }
+
+    body.playing .app {
+      width: min(100%, 980px);
+      grid-template-rows: 1fr auto;
+      gap: 10px;
+      padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+    }
+
+    body.playing header,
+    body.playing .profile,
+    body.playing .room-panel,
+    body.playing .stats,
+    body.playing .ad-slot {
+      display: none;
+    }
+
+    body.playing .stage {
+      align-self: center;
+      gap: 8px;
+      padding-top: 0;
     }
 
     header {
@@ -333,6 +356,12 @@
       font-weight: 800;
     }
 
+    .google-ad {
+      display: block;
+      width: 100%;
+      min-height: 100px;
+    }
+
     @media (min-width: 1500px) {
       .ad-slot {
         position: fixed;
@@ -361,6 +390,15 @@
       gap: 8px;
       width: min(92vw, 470px);
       aspect-ratio: var(--word-length) / 5.15;
+    }
+
+    body.playing .board {
+      width: min(96vw, 620px);
+      max-height: calc(100vh - 235px);
+    }
+
+    body.playing .tile {
+      font-size: clamp(32px, 10.5vw, 58px);
     }
 
     .row {
@@ -509,6 +547,17 @@
     .key.wide {
       width: clamp(58px, 16vw, 92px);
       font-size: 14px;
+    }
+
+    body.playing .key {
+      width: clamp(31px, 9.2vw, 54px);
+      height: 50px;
+      font-size: clamp(20px, 6vw, 26px);
+    }
+
+    body.playing .key.wide {
+      width: clamp(72px, 20vw, 112px);
+      font-size: 15px;
     }
 
     .key.correct {
@@ -678,17 +727,36 @@
 
     @media (max-width: 470px) {
       .app {
-        padding-left: 9px;
-        padding-right: 9px;
+        padding-left: 7px;
+        padding-right: 7px;
       }
 
       .board {
-        width: min(94vw, 390px);
+        width: min(96vw, 410px);
         gap: 6px;
+      }
+
+      body.playing .app {
+        min-height: 100svh;
+        padding: 6px 5px max(6px, env(safe-area-inset-bottom));
+      }
+
+      body.playing .meta {
+        font-size: 13px;
+      }
+
+      body.playing .board {
+        width: min(98vw, 430px);
+        max-height: calc(100svh - 225px);
+        gap: 5px;
       }
 
       .row {
         gap: 6px;
+      }
+
+      body.playing .row {
+        gap: 5px;
       }
 
       .key-row {
@@ -697,6 +765,15 @@
 
       .key {
         height: 43px;
+      }
+
+      body.playing .key {
+        width: clamp(30px, 9.8vw, 46px);
+        height: 49px;
+      }
+
+      body.playing .key.wide {
+        width: clamp(68px, 21vw, 96px);
       }
 
       .stats {
@@ -770,6 +847,11 @@
     </div>
     <div class="ad-slot" aria-label="advertisement">
       <span>&#44305;&#44256;</span>
+      <ins class="adsbygoogle google-ad"
+        data-ad-client="ca-pub-8960749854738466"
+        data-ad-slot="7222891221"
+        data-ad-format="auto"
+        data-full-width-responsive="true"></ins>
       <ins class="kakao_ad_area" style="display:none;"
         data-ad-unit="DAN-IyjFMMsX8A0cddwc"
         data-ad-width="320"
@@ -826,6 +908,9 @@
   <div class="countdown" id="countdownOverlay" hidden>3</div>
 
   <script async type="text/javascript" src="https://t1.kakaocdn.net/kas/static/ba.min.js"></script>
+  <script>
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
   <script>
     const ANSWERS_5 = [
       { word: "가게", jamo: ["ㄱ", "ㅏ", "ㄱ", "ㅓ", "ㅣ"] },
@@ -1665,6 +1750,10 @@
       return value && typeof value.word === "string" && Array.isArray(value.jamo);
     }
 
+    function setPlayingMode(enabled) {
+      document.body.classList.toggle("playing", Boolean(enabled));
+    }
+
     function reset(answerOverride = null) {
       if (isAnswer(answerOverride)) setWordLength(answerOverride.jamo.length);
       state.answer = isAnswer(answerOverride) ? answerOverride : pickAnswer(state.answer?.word);
@@ -1866,6 +1955,7 @@
         : null;
       recordGame(won, opponent?.name || "");
       sendRoomResult(won, tries);
+      setPlayingMode(false);
       resultTitle.textContent = won ? "정답!" : "아쉽다!";
       resultText.textContent = won
         ? `${state.nickname}님이 ${tries}번째 시도에 맞혔어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`
@@ -2267,6 +2357,7 @@
       updateRoomView(data);
       reset(answer);
       state.done = true;
+      setPlayingMode(true);
       resultPanel.hidden = true;
       countdownOverlay.hidden = false;
       countdownOverlay.textContent = "3";
@@ -2287,6 +2378,7 @@
       roomState.started = true;
       updateRoomView(data);
       reset(answer);
+      setPlayingMode(true);
       resultPanel.hidden = true;
       countdownOverlay.hidden = true;
       startRoundTimer();
@@ -2322,6 +2414,7 @@
     }
 
     function readyForNextRound() {
+      setPlayingMode(false);
       clearBoardForWaiting();
       roomState.endsAt = 0;
       countdownOverlay.hidden = true;
@@ -2343,6 +2436,7 @@
       const opponent = players.length === 2 ? players.find((player) => player.id !== roomState.playerId) : null;
       state.done = true;
       recordGame(won, opponent?.name || "");
+      setPlayingMode(false);
       countdownOverlay.hidden = true;
       resultTitle.textContent = won ? "승리!" : "패배!";
       const lines = [
@@ -2383,6 +2477,7 @@
 
     function handleRoomTimeout(data) {
       updateRoomView(data);
+      setPlayingMode(false);
       if (!state.done) {
         state.done = true;
         recordGame(false);
@@ -2410,6 +2505,7 @@
 
     function closeResultToRoom() {
       resultPanel.hidden = true;
+      setPlayingMode(false);
       if (roomState.joined) {
         readyForNextRound();
       } else {
@@ -2418,6 +2514,7 @@
     }
 
     function leaveRoomLocal() {
+      setPlayingMode(false);
       if (roomState.eventSource) roomState.eventSource.close();
       roomState.room = "";
       roomState.playerId = "";
