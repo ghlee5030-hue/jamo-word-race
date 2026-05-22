@@ -605,6 +605,8 @@
 
     .dialog {
       width: min(100%, 460px);
+      max-height: calc(100svh - 36px);
+      overflow: auto;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: #151b20;
@@ -624,6 +626,28 @@
       line-height: 1.55;
       word-break: keep-all;
       white-space: pre-line;
+    }
+
+    .help-steps {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0;
+      padding: 0;
+      list-style: none;
+      color: #dbe3e9;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .help-steps li {
+      padding: 9px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .help-steps strong {
+      color: var(--ink);
     }
 
     .name-form {
@@ -866,9 +890,16 @@
 
   <section class="panel" id="helpPanel">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-      <h2 id="helpTitle">맞추는 법</h2>
-      <p>정답은 사전 표제어이고, 그 단어를 자음과 모음 5개 또는 6개 조각으로 풀어 맞힙니다. 제출은 내장 사전과 온라인 표제어 확인을 통과한 조합만 인정합니다.</p>
-      <p>예를 들어 <strong>의자</strong>는 아래처럼 입력하고, <strong>바퀴</strong>는 ㅂ ㅏ ㅋ ㅜ ㅣ로 입력해요. 쌍자음은 ㄲ 대신 ㄱ ㄱ처럼 두 번 입력합니다.</p>
+      <h2 id="helpTitle">게임방법</h2>
+      <p>정답 단어를 자음과 모음 5개 또는 6개 조각으로 맞히는 한글 단어 배틀입니다. 사전에 있는 표제어 조합만 제출할 수 있어요.</p>
+      <ul class="help-steps">
+        <li><strong>혼자 하기</strong>: 화면 키보드나 실제 키보드로 낱자를 넣고 입력을 눌러 색상 힌트를 확인하세요.</li>
+        <li><strong>키보드 이동</strong>: 아래쪽의 키보드 이동 바를 누른 채 위아래로 끌면 화면 키보드 위치를 조절할 수 있어요.</li>
+        <li><strong>키보드 방식</strong>: 두벌식과 천지인 중 편한 방식을 선택할 수 있습니다. 선택한 방식은 다음에도 유지돼요.</li>
+        <li><strong>친구와 대결</strong>: 방 만들기를 누르면 대기방이 열립니다. 공유 링크 복사를 눌러 친구에게 보내세요.</li>
+        <li><strong>방 코드 입장</strong>: 친구에게 방 코드를 받았다면 방 코드 칸에 입력한 뒤 입장을 누르면 같은 방에 들어갑니다.</li>
+      </ul>
+      <p>예를 들어 <strong>의자</strong>는 아래처럼 입력하고, <strong>바퀴</strong>는 ㅂ ㅏ ㅋ ㅜ ㅣ로 입력합니다. 쌍자음은 ㄲ 대신 ㄱ ㄱ처럼 두 번 입력합니다.</p>
       <div class="example" aria-label="의자 예시">
         <span class="example-tile">ㅇ</span>
         <span class="example-tile">ㅡ</span>
