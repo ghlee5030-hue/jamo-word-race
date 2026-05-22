@@ -82,7 +82,7 @@
 
     header {
       display: grid;
-      grid-template-columns: 42px 1fr 42px;
+      grid-template-columns: 76px 1fr 42px;
       align-items: center;
       min-height: 50px;
       border-bottom: 1px solid var(--line);
@@ -105,6 +105,11 @@
       background: var(--panel);
       cursor: pointer;
       font-weight: 850;
+    }
+
+    #helpButton {
+      width: 70px;
+      font-size: 13px;
     }
 
     .stage {
@@ -785,7 +790,7 @@
 <body>
   <main class="app">
     <header>
-      <button class="icon-button" id="helpButton" title="도움말" aria-label="도움말">?</button>
+      <button class="icon-button" id="helpButton" title="게임방법" aria-label="게임방법">게임방법</button>
       <h1>단어배틀</h1>
       <button class="icon-button" id="newButton" title="새 문제" aria-label="새 문제">↻</button>
     </header>
