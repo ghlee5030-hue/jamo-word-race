@@ -998,6 +998,8 @@
         <div class="stat"><strong id="statRate">0%</strong><span>승률</span></div>
         <div class="stat"><strong id="statPlayed">0</strong><span>총 판수</span></div>
       </div>
+      <h3 class="section-heading">모드별 전적</h3>
+      <div class="versus-list" id="modeStatsList"></div>
       <h3 class="section-heading">1대1 상대전적</h3>
       <div class="versus-list" id="versusList"></div>
       <p class="empty-state" id="versusEmpty" hidden>아직 1대1 상대전적이 없어요.</p>
@@ -1649,6 +1651,7 @@
     const statBestStreak = document.getElementById("statBestStreak");
     const statRate = document.getElementById("statRate");
     const statPlayed = document.getElementById("statPlayed");
+    const modeStatsList = document.getElementById("modeStatsList");
     const versusList = document.getElementById("versusList");
     const versusEmpty = document.getElementById("versusEmpty");
     const roomPanel = document.getElementById("roomPanel");
@@ -2061,7 +2064,7 @@
       const opponent = roomState.joined && roomState.players.length === 2
         ? roomState.players.find((player) => player.id !== roomState.playerId)
         : null;
-      recordGame(won, opponent?.name || "");
+      recordGame(won, opponent?.name || "", getStatsMode(roomState.players));
       sendRoomResult(won, tries);
       setPlayingMode(false);
       resultTitle.textContent = won ? "정답!" : "아쉽다!";
@@ -2105,17 +2108,62 @@
       localStorage.setItem(STATS_KEY, JSON.stringify(stats));
     }
 
+    function emptyModeStats() {
+      return { wins: 0, losses: 0, streak: 0, bestStreak: 0, played: 0 };
+    }
+
     function emptyStats() {
-      return { wins: 0, losses: 0, streak: 0, bestStreak: 0, played: 0, versus: {} };
+      return {
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        bestStreak: 0,
+        played: 0,
+        versus: {},
+        modes: {
+          solo: emptyModeStats(),
+          duel: emptyModeStats(),
+          multi: emptyModeStats()
+        }
+      };
+    }
+
+    function normalizeStats(stats) {
+      const base = emptyStats();
+      const next = { ...base, ...(stats || {}) };
+      next.versus = stats?.versus || {};
+      next.modes = {
+        solo: { ...emptyModeStats(), ...(stats?.modes?.solo || {}) },
+        duel: { ...emptyModeStats(), ...(stats?.modes?.duel || {}) },
+        multi: { ...emptyModeStats(), ...(stats?.modes?.multi || {}) }
+      };
+      return next;
     }
 
     function getCurrentStats() {
       const allStats = loadAllStats();
-      return allStats[state.nickname] || emptyStats();
+      return normalizeStats(allStats[state.nickname]);
     }
 
     function getWinRate(stats) {
       return stats.played ? `${Math.round((stats.wins / stats.played) * 100)}%` : "0%";
+    }
+
+    function applyRecord(stats, won) {
+      stats.played += 1;
+      if (won) {
+        stats.wins += 1;
+        stats.streak += 1;
+        stats.bestStreak = Math.max(stats.bestStreak || 0, stats.streak);
+      } else {
+        stats.losses += 1;
+        stats.streak = 0;
+      }
+    }
+
+    function getStatsMode(players = roomState.players) {
+      if (!roomState.joined) return "solo";
+      return (players?.length || 0) === 2 ? "duel" : "multi";
     }
 
     function updateStatsView() {
@@ -2128,6 +2176,20 @@
       statRate.textContent = getWinRate(stats);
       statPlayed.textContent = stats.played || 0;
       statsIntro.textContent = `${state.nickname || "손님"}님의 이 브라우저 저장 기록입니다.`;
+      const modeLabels = [
+        ["solo", "혼자 하기"],
+        ["duel", "1대1 대결"],
+        ["multi", "다인전"]
+      ];
+      modeStatsList.innerHTML = modeLabels.map(([key, label]) => {
+        const item = stats.modes?.[key] || emptyModeStats();
+        return `
+          <div class="versus-row">
+            <strong>${label}</strong>
+            <span>${item.wins || 0}승 ${item.losses || 0}패 · ${getWinRate(item)}</span>
+          </div>
+        `;
+      }).join("");
       const versusEntries = Object.entries(stats.versus || {})
         .filter(([, item]) => item && item.played)
         .sort((a, b) => (b[1].played || 0) - (a[1].played || 0) || a[0].localeCompare(b[0], "ko"));
@@ -2140,21 +2202,14 @@
       versusEmpty.hidden = versusEntries.length > 0;
     }
 
-    function recordGame(won, opponentName = "") {
+    function recordGame(won, opponentName = "", mode = getStatsMode()) {
       if (state.recorded || !state.nickname) return;
       state.recorded = true;
       const allStats = loadAllStats();
-      const stats = allStats[state.nickname] || emptyStats();
-      stats.versus = stats.versus || {};
-      stats.played += 1;
-      if (won) {
-        stats.wins += 1;
-        stats.streak += 1;
-        stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
-      } else {
-        stats.losses += 1;
-        stats.streak = 0;
-      }
+      const stats = normalizeStats(allStats[state.nickname]);
+      const safeMode = ["solo", "duel", "multi"].includes(mode) ? mode : "solo";
+      applyRecord(stats, won);
+      applyRecord(stats.modes[safeMode], won);
       if (opponentName) {
         const versus = stats.versus[opponentName] || { wins: 0, losses: 0, played: 0 };
         versus.played += 1;
@@ -2556,7 +2611,7 @@
       const losers = players.filter((player) => player.result === "loss").map((player) => player.name);
       const opponent = players.length === 2 ? players.find((player) => player.id !== roomState.playerId) : null;
       state.done = true;
-      recordGame(won, opponent?.name || "");
+      recordGame(won, opponent?.name || "", getStatsMode(players));
       setPlayingMode(false);
       countdownOverlay.hidden = true;
       resultTitle.textContent = won ? "승리!" : "패배!";
@@ -2601,7 +2656,7 @@
       setPlayingMode(false);
       if (!state.done) {
         state.done = true;
-        recordGame(false);
+        recordGame(false, "", getStatsMode(data?.players || roomState.players));
         resultTitle.textContent = "시간 종료!";
         resultText.textContent = `제한시간이 끝났어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
         resultPanel.hidden = false;
