@@ -1682,6 +1682,7 @@
     const STORAGE_KEY = "jamo-word-game-profile";
     const STATS_KEY = "jamo-word-game-stats";
     const ROOM_SESSION_KEY = "jamo-word-game-room-session";
+    const CLIENT_ID_KEY = "jamo-word-game-client-id";
     const KEYBOARD_LAYOUT_KEY = "jamo-word-game-keyboard-layout";
     const MAX_GUESSES = 5;
     const DEFAULT_WORD_LENGTH = 5;
@@ -2265,6 +2266,15 @@
       return url.toString();
     }
 
+    function getClientId() {
+      let clientId = localStorage.getItem(CLIENT_ID_KEY);
+      if (!clientId) {
+        clientId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem(CLIENT_ID_KEY, clientId);
+      }
+      return clientId;
+    }
+
     function getSavedRoomSession(room) {
       try {
         const session = JSON.parse(localStorage.getItem(ROOM_SESSION_KEY)) || {};
@@ -2279,6 +2289,7 @@
       localStorage.setItem(ROOM_SESSION_KEY, JSON.stringify({
         room: roomState.room,
         playerId: roomState.playerId,
+        clientId: getClientId(),
         name: state.nickname
       }));
     }
@@ -2339,7 +2350,7 @@
         return;
       }
       try {
-        const data = await apiPost("/api/room", { name: state.nickname });
+        const data = await apiPost("/api/room", { name: state.nickname, clientId: getClientId() });
         enterRoom(data);
         await navigator.clipboard.writeText(`단어배틀 방 초대\n${roomUrl(data.room)}`);
         showToast("방을 만들고 초대 링크를 복사했어요");
@@ -2365,6 +2376,7 @@
         const data = await apiPost("/api/join", {
           room: code,
           name: state.nickname,
+          clientId: getClientId(),
           playerId: savedSession?.playerId || ""
         });
         enterRoom(data);
@@ -2442,6 +2454,7 @@
         if (message.type === "timeout") handleRoomTimeout(message.state);
         if (message.type === "chat") addChatMessage(message.message);
         if (message.type === "kicked") handleKicked(message.reason);
+        if (message.type === "roomClosed") handleRoomClosed(message.reason);
       };
       roomState.eventSource.onerror = () => {
         roomStatus.textContent = "연결 재시도 중";
@@ -2453,6 +2466,11 @@
     }
 
     function handleKicked(reason = "방에서 나갔어요") {
+      showToast(reason);
+      leaveRoomLocal();
+    }
+
+    function handleRoomClosed(reason = "방이 자동으로 닫혔어요.") {
       showToast(reason);
       leaveRoomLocal();
     }

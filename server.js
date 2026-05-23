@@ -13,6 +13,7 @@ const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 30000;
 const SSE_KEEPALIVE_MS = 15000;
+const SOLO_WAITING_ROOM_TTL_MS = 10 * 60000;
 const MAX_BODY_BYTES = 10000;
 const MAX_ACTIVE_ROOMS_PER_IP = 5;
 const ROOM_CREATE_WINDOW_MS = 10 * 60000;
@@ -119,6 +120,17 @@ function countActiveRoomsForIp(ip) {
   return count;
 }
 
+function findWaitingRoomByClientId(clientId) {
+  if (!clientId) return null;
+  for (const room of rooms.values()) {
+    if (room.started || room.countdownUntil) continue;
+    for (const player of room.players.values()) {
+      if (player.clientId === clientId) return { room, player };
+    }
+  }
+  return null;
+}
+
 function sweepBuckets() {
   const now = Date.now();
   for (const store of [rateBuckets, roomCreateBuckets]) {
@@ -159,6 +171,10 @@ function makeRoomCode() {
 
 function makePlayerId() {
   return crypto.randomBytes(8).toString("hex");
+}
+
+function cleanClientId(clientId) {
+  return String(clientId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
 }
 
 function cleanName(name) {
@@ -214,6 +230,16 @@ function broadcastSystem(room, text) {
   broadcast(room, { type: "chat", message });
 }
 
+function closeRoom(room, reason) {
+  broadcast(room, { type: "roomClosed", reason });
+  for (const client of room.clients) {
+    client.end();
+  }
+  if (room.timer) clearTimeout(room.timer);
+  if (room.countdownTimer) clearTimeout(room.countdownTimer);
+  rooms.delete(room.code);
+}
+
 function publicRoomList() {
   return [...rooms.values()]
     .filter((room) => !room.started && !room.countdownUntil && room.players.size > 0 && room.players.size < 5)
@@ -253,6 +279,10 @@ function sweepIdlePlayers() {
   const now = Date.now();
   for (const room of [...rooms.values()]) {
     if (room.started || room.countdownUntil) continue;
+    if (room.players.size === 1 && now - (room.createdAt || now) >= SOLO_WAITING_ROOM_TTL_MS) {
+      closeRoom(room, "10분 동안 혼자 남아 있어 방이 자동으로 닫혔어요.");
+      continue;
+    }
     for (const player of [...room.players.values()]) {
       if (player.id === room.hostId || player.ready) continue;
       if (now - (player.lastActive || player.joinedAt || now) >= READY_IDLE_KICK_MS) {
@@ -333,6 +363,15 @@ async function handleApi(req, res, pathname) {
 
     if (pathname === "/api/room") {
       const ip = getClientIp(req);
+      const clientId = cleanClientId(body.clientId);
+      const existingSession = findWaitingRoomByClientId(clientId);
+      if (existingSession) {
+        existingSession.player.name = cleanName(body.name);
+        existingSession.player.lastActive = Date.now();
+        broadcastState(existingSession.room);
+        sendJson(res, 200, { room: existingSession.room.code, playerId: existingSession.player.id, state: publicState(existingSession.room), reused: true });
+        return;
+      }
       if (consumeBucket(roomCreateBuckets, ip, ROOM_CREATE_WINDOW_MS, ROOM_CREATE_MAX)) {
         sendJson(res, 429, { error: "방을 너무 자주 만들고 있어요. 잠시 후 다시 시도하세요." });
         return;
@@ -343,10 +382,11 @@ async function handleApi(req, res, pathname) {
       }
       const code = makeRoomCode();
       const now = Date.now();
-      const player = { id: makePlayerId(), name: cleanName(body.name), ready: true, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
+      const player = { id: makePlayerId(), clientId, name: cleanName(body.name), ready: true, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       const room = {
         code,
         hostId: player.id,
+        createdAt: now,
         players: new Map([[player.id, player]]),
         clients: new Set(),
         started: false,
@@ -368,8 +408,20 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/join") {
       const room = requireRoom(normalizeRoomCode(body.room));
       const name = cleanName(body.name);
+      const clientId = cleanClientId(body.clientId);
+      const sameClientPlayer = clientId
+        ? [...room.players.values()].find((player) => player.clientId === clientId)
+        : null;
+      if (sameClientPlayer) {
+        sameClientPlayer.name = name;
+        sameClientPlayer.lastActive = Date.now();
+        broadcastState(room);
+        sendJson(res, 200, { room: room.code, playerId: sameClientPlayer.id, state: publicState(room), reused: true });
+        return;
+      }
       const existingPlayer = room.players.get(String(body.playerId || ""));
       if (existingPlayer && existingPlayer.name === name) {
+        if (clientId && !existingPlayer.clientId) existingPlayer.clientId = clientId;
         existingPlayer.lastActive = Date.now();
         sendJson(res, 200, { room: room.code, playerId: existingPlayer.id, state: publicState(room) });
         return;
@@ -379,7 +431,7 @@ async function handleApi(req, res, pathname) {
       if (room.players.size >= 5) throw new Error("방은 최대 5명까지 입장할 수 있어요");
       if (room.started || room.countdownUntil) throw new Error("이미 시작한 방입니다");
       const now = Date.now();
-      const player = { id: makePlayerId(), name, ready: false, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
+      const player = { id: makePlayerId(), clientId, name, ready: false, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       room.players.set(player.id, player);
       broadcastState(room);
       sendJson(res, 200, { room: room.code, playerId: player.id, state: publicState(room) });
