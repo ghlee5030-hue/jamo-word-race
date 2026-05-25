@@ -11,7 +11,7 @@ const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
-const READY_IDLE_KICK_MS = 30000;
+const READY_IDLE_KICK_MS = 0;
 const SSE_KEEPALIVE_MS = 15000;
 const SOLO_WAITING_ROOM_TTL_MS = 10 * 60000;
 const MAX_BODY_BYTES = 10000;
@@ -195,6 +195,7 @@ function publicState(room) {
       ready: player.ready,
       result: player.result,
       tries: player.tries,
+      leftRound: Boolean(player.leftRound),
       finishedAt: player.finishedAt
     })).sort((a, b) => {
       if (a.finishedAt && b.finishedAt) return a.finishedAt - b.finishedAt;
@@ -284,7 +285,7 @@ function sweepIdlePlayers() {
       continue;
     }
     for (const player of [...room.players.values()]) {
-      if (player.id === room.hostId || player.ready) continue;
+      if (!READY_IDLE_KICK_MS || player.id === room.hostId || player.ready) continue;
       if (now - (player.lastActive || player.joinedAt || now) >= READY_IDLE_KICK_MS) {
         removePlayer(room, player.id, { kicked: true, reason: "30초 동안 준비하지 않아 자동 강퇴됐어요" });
       }
@@ -309,6 +310,7 @@ function finishTimedOutPlayers(room) {
   room.countdownTimer = null;
   for (const player of room.players.values()) {
     player.ready = player.id === room.hostId;
+    player.leftRound = false;
   }
   broadcast(room, { type: "timeout", state: publicState(room) });
 }
@@ -323,7 +325,59 @@ function finishRound(room) {
   room.countdownTimer = null;
   for (const player of room.players.values()) {
     player.ready = player.id === room.hostId;
+    player.leftRound = false;
   }
+}
+
+function finishRoundWithWinner(room, winnerId, loserIds = []) {
+  const now = Date.now();
+  for (const player of room.players.values()) {
+    if (player.id === winnerId) {
+      player.result = "win";
+      player.tries = player.tries || 0;
+      player.finishedAt = player.finishedAt || now;
+    } else if (loserIds.length === 0 || loserIds.includes(player.id) || !player.result) {
+      player.result = "loss";
+      player.tries = player.tries || 0;
+      player.finishedAt = player.finishedAt || now;
+    }
+  }
+  finishRound(room);
+  broadcastState(room);
+}
+
+function leaveDuringRound(room, playerId) {
+  const player = requirePlayer(room, playerId);
+  if (!room.started) {
+    removePlayer(room, playerId, { reason: "방에서 나갔어요" });
+    return;
+  }
+
+  const now = Date.now();
+  const players = [...room.players.values()];
+  if (players.length === 2) {
+    const winner = players.find((item) => item.id !== player.id);
+    if (winner) finishRoundWithWinner(room, winner.id, [player.id]);
+    return;
+  }
+
+  if (!player.result) {
+    player.result = "loss";
+    player.tries = 0;
+    player.finishedAt = now;
+  }
+  player.leftRound = true;
+  player.ready = false;
+  sendToPlayer(room, player.id, { type: "roundLeft", state: publicState(room) });
+  const activePlayers = [...room.players.values()].filter((item) => !item.result && !item.leftRound);
+  if (activePlayers.length === 1) {
+    finishRoundWithWinner(room, activePlayers[0].id);
+    return;
+  }
+  if (activePlayers.length === 0) {
+    finishRound(room);
+  }
+  broadcastState(room);
 }
 
 function requireRoom(code) {
@@ -373,11 +427,11 @@ async function handleApi(req, res, pathname) {
         return;
       }
       if (consumeBucket(roomCreateBuckets, ip, ROOM_CREATE_WINDOW_MS, ROOM_CREATE_MAX)) {
-        sendJson(res, 429, { error: "방을 너무 자주 만들고 있어요. 잠시 후 다시 시도하세요." });
+        sendJson(res, 429, { error: "방을 너무 많이 만들었어요. 잠시 후 다시 시도하세요." });
         return;
       }
       if (countActiveRoomsForIp(ip) >= MAX_ACTIVE_ROOMS_PER_IP) {
-        sendJson(res, 429, { error: "한 네트워크에서 만들 수 있는 대기방 수를 넘었어요." });
+        sendJson(res, 429, { error: "방 만들기 요청이 많아요. 잠시 후 다시 시도하세요." });
         return;
       }
       const code = makeRoomCode();
@@ -451,8 +505,12 @@ async function handleApi(req, res, pathname) {
 
     if (pathname === "/api/leave") {
       const room = requireRoom(body.room);
-      if (room.started || room.countdownUntil) throw new Error("게임 중에는 나갈 수 없어요");
-      removePlayer(room, body.playerId, { reason: "방에서 나갔어요" });
+      if (room.countdownUntil && Date.now() < room.countdownUntil) throw new Error("시작 준비 중에는 나갈 수 없어요");
+      if (room.countdownUntil && Date.now() >= room.countdownUntil) {
+        room.started = true;
+        room.countdownUntil = 0;
+      }
+      leaveDuringRound(room, body.playerId);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -487,12 +545,14 @@ async function handleApi(req, res, pathname) {
         player.result = "";
         player.tries = 0;
         player.finishedAt = 0;
+        player.leftRound = false;
       }
       if (room.countdownTimer) clearTimeout(room.countdownTimer);
       if (room.timer) clearTimeout(room.timer);
       broadcast(room, { type: "countdown", answer: room.answer, startsAt: room.countdownUntil, state: publicState(room) });
       room.countdownTimer = setTimeout(() => {
         room.started = true;
+        room.countdownUntil = 0;
         broadcast(room, { type: "start", answer: room.answer, endsAt: room.endsAt, state: publicState(room) });
       }, COUNTDOWN_MS);
       room.timer = setTimeout(() => {
@@ -616,7 +676,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === "POST" && url.pathname.startsWith("/api/")) {
     if (isRateLimited(req, url.pathname)) {
-      sendJson(res, 429, { error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요" });
+      sendJson(res, 429, { error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요." });
       return;
     }
     handleApi(req, res, url.pathname);
