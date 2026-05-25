@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://jamo-word-race.onrender.com/sitemap.xml
+Sitemap: https://jamoarcade.com/sitemap.xml
