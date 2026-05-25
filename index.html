@@ -659,6 +659,15 @@
 
     #resultPanel .dialog {
       pointer-events: auto;
+      touch-action: none;
+      cursor: grab;
+      transform: translate(var(--result-x, 0px), var(--result-y, 0px));
+      will-change: transform;
+    }
+
+    #resultPanel .dialog.dragging {
+      cursor: grabbing;
+      user-select: none;
     }
 
     .dialog {
@@ -1650,6 +1659,7 @@
     const hintButton = document.getElementById("hintButton");
     const helpPanel = document.getElementById("helpPanel");
     const resultPanel = document.getElementById("resultPanel");
+    const resultDialog = resultPanel.querySelector(".dialog");
     const resultTitle = document.getElementById("resultTitle");
     const resultText = document.getElementById("resultText");
     const profilePanel = document.getElementById("profilePanel");
@@ -1729,6 +1739,18 @@
       active: false,
       moved: false,
       suppressClick: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      offsetX: 0,
+      offsetY: 0,
+      rect: null
+    };
+
+    const resultDrag = {
+      active: false,
       pointerId: null,
       startX: 0,
       startY: 0,
@@ -1870,6 +1892,77 @@
       window.addEventListener("resize", () => {
         if (!keyboardDrag.offsetX && !keyboardDrag.offsetY) return;
         setKeyboardOffset(keyboardDrag.offsetX, keyboardDrag.offsetY);
+      });
+    }
+
+    function setResultDialogOffset(x, y, baseRect = resultDialog.getBoundingClientRect(), baseX = resultDrag.offsetX, baseY = resultDrag.offsetY) {
+      const margin = 8;
+      let nextX = x;
+      let nextY = y;
+      const dx = nextX - baseX;
+      const dy = nextY - baseY;
+      const left = baseRect.left + dx;
+      const right = baseRect.right + dx;
+      const top = baseRect.top + dy;
+      const bottom = baseRect.bottom + dy;
+
+      if (left < margin) nextX += margin - left;
+      if (right > window.innerWidth - margin) nextX -= right - (window.innerWidth - margin);
+      if (top < margin) nextY += margin - top;
+      if (bottom > window.innerHeight - margin) nextY -= bottom - (window.innerHeight - margin);
+
+      resultDrag.offsetX = nextX;
+      resultDrag.offsetY = nextY;
+      resultDialog.style.setProperty("--result-x", `${Math.round(nextX)}px`);
+      resultDialog.style.setProperty("--result-y", `${Math.round(nextY)}px`);
+    }
+
+    function resetResultDialogPosition() {
+      resultDrag.offsetX = 0;
+      resultDrag.offsetY = 0;
+      resultDialog.style.setProperty("--result-x", "0px");
+      resultDialog.style.setProperty("--result-y", "0px");
+    }
+
+    function enableResultDialogDrag() {
+      resultDialog.addEventListener("pointerdown", (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        if (event.target.closest("button")) return;
+        resultDrag.active = true;
+        resultDrag.pointerId = event.pointerId;
+        resultDrag.startX = event.clientX;
+        resultDrag.startY = event.clientY;
+        resultDrag.startOffsetX = resultDrag.offsetX;
+        resultDrag.startOffsetY = resultDrag.offsetY;
+        resultDrag.rect = resultDialog.getBoundingClientRect();
+        resultDialog.classList.add("dragging");
+        resultDialog.setPointerCapture?.(event.pointerId);
+      });
+
+      resultDialog.addEventListener("pointermove", (event) => {
+        if (!resultDrag.active || event.pointerId !== resultDrag.pointerId) return;
+        event.preventDefault();
+        setResultDialogOffset(
+          resultDrag.startOffsetX + event.clientX - resultDrag.startX,
+          resultDrag.startOffsetY + event.clientY - resultDrag.startY,
+          resultDrag.rect,
+          resultDrag.startOffsetX,
+          resultDrag.startOffsetY
+        );
+      });
+
+      function stopResultDrag(event) {
+        if (!resultDrag.active || event.pointerId !== resultDrag.pointerId) return;
+        resultDrag.active = false;
+        resultDialog.classList.remove("dragging");
+        resultDialog.releasePointerCapture?.(event.pointerId);
+      }
+
+      resultDialog.addEventListener("pointerup", stopResultDrag);
+      resultDialog.addEventListener("pointercancel", stopResultDrag);
+      window.addEventListener("resize", () => {
+        if (resultPanel.hidden || (!resultDrag.offsetX && !resultDrag.offsetY)) return;
+        setResultDialogOffset(resultDrag.offsetX, resultDrag.offsetY);
       });
     }
 
@@ -2139,6 +2232,7 @@
       recordGame(won, opponent?.name || "", getStatsMode(roomState.players));
       sendRoomResult(won, tries);
       gameLeaveButton.hidden = true;
+      resetResultDialogPosition();
       resultTitle.textContent = won ? "정답!" : "아쉽다!";
       resultText.textContent = won
         ? `${state.nickname}님이 ${tries}번째 시도에 맞혔어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`
@@ -2724,6 +2818,7 @@
       recordGame(won, opponent?.name || "", getStatsMode(players));
       countdownOverlay.hidden = true;
       gameLeaveButton.hidden = true;
+      resetResultDialogPosition();
       resultTitle.textContent = won ? "승리!" : "패배!";
       const lines = [
         `승리: ${winners.length ? winners.join(", ") : "없음"}`,
@@ -2767,6 +2862,7 @@
         state.done = true;
         recordGame(false, "", getStatsMode(data?.players || roomState.players));
         gameLeaveButton.hidden = true;
+        resetResultDialogPosition();
         resultTitle.textContent = "시간 종료!";
         resultText.textContent = `제한시간이 끝났어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
         resultPanel.hidden = false;
@@ -3184,6 +3280,7 @@
     }
     setWordLength(DEFAULT_WORD_LENGTH);
     enableKeyboardDrag();
+    enableResultDialogDrag();
     updateStatsView();
     reset();
     refreshRoomList();
