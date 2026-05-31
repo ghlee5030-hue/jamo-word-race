@@ -2887,6 +2887,13 @@
 
     function closeResultToRoom() {
       resultPanel.hidden = true;
+      if (roomState.joined && roomState.started) {
+        setPlayingMode(true);
+        state.done = true;
+        gameLeaveButton.hidden = true;
+        showToast("상대가 끝날 때까지 대기 중이에요");
+        return;
+      }
       setPlayingMode(false);
       if (roomState.joined) {
         readyForNextRound();
