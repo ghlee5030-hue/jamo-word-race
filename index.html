@@ -578,8 +578,12 @@
     }
 
     .keyboard {
+      --keyboard-gap: 5px;
+      --keyboard-key: clamp(28px, calc((100vw - 52px) / 9.8), 44px);
+      --keyboard-wide: clamp(50px, calc((100vw - 52px) / 5.55), 92px);
       display: grid;
       gap: 7px;
+      width: min(100%, calc(100vw - 10px));
       padding-bottom: env(safe-area-inset-bottom);
       touch-action: manipulation;
       user-select: none;
@@ -588,13 +592,14 @@
     .key-row {
       display: flex;
       justify-content: center;
-      gap: 5px;
+      gap: var(--keyboard-gap);
       flex-wrap: nowrap;
+      max-width: 100%;
     }
 
     .key {
       min-width: 0;
-      width: clamp(28px, 7.7vw, 44px);
+      width: var(--keyboard-key);
       height: 46px;
       border: 0;
       border-radius: 8px;
@@ -608,18 +613,22 @@
     }
 
     .key.wide {
-      width: clamp(58px, 16vw, 92px);
+      width: var(--keyboard-wide);
       font-size: 14px;
     }
 
+    body.playing .keyboard {
+      --keyboard-gap: 4px;
+      --keyboard-key: clamp(27px, calc((100vw - 42px) / 9.8), 54px);
+      --keyboard-wide: clamp(50px, calc((100vw - 42px) / 5.55), 112px);
+    }
+
     body.playing .key {
-      width: clamp(31px, 9.2vw, 54px);
       height: 50px;
       font-size: clamp(20px, 6vw, 26px);
     }
 
     body.playing .key.wide {
-      width: clamp(72px, 20vw, 112px);
       font-size: 15px;
     }
 
@@ -855,21 +864,22 @@
         gap: 5px;
       }
 
-      .key-row {
-        gap: 3px;
+      .keyboard {
+        --keyboard-gap: 3px;
+        --keyboard-key: clamp(26px, calc((100vw - 34px) / 9.8), 46px);
+        --keyboard-wide: clamp(48px, calc((100vw - 34px) / 5.55), 96px);
       }
 
       .key {
         height: 43px;
       }
 
-      body.playing .key {
-        width: clamp(30px, 9.8vw, 46px);
-        height: 49px;
+      .key-row {
+        gap: var(--keyboard-gap);
       }
 
-      body.playing .key.wide {
-        width: clamp(68px, 21vw, 96px);
+      body.playing .key {
+        height: 49px;
       }
 
       .stats {
