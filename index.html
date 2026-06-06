@@ -44,6 +44,7 @@
       width: 100%;
       min-height: 100%;
       margin: 0;
+      overflow-x: hidden;
       background:
         radial-gradient(circle at 18% 10%, rgba(90, 167, 255, 0.18), transparent 30%),
         radial-gradient(circle at 80% 18%, rgba(72, 168, 104, 0.12), transparent 26%),
@@ -59,6 +60,7 @@
 
     .app {
       width: min(100%, 820px);
+      max-width: 100vw;
       min-height: 100vh;
       margin: 0 auto;
       padding: 18px 14px 20px;
@@ -535,6 +537,9 @@
       z-index: 4;
       display: grid;
       gap: 6px;
+      justify-items: center;
+      max-width: 100vw;
+      overflow-x: clip;
       will-change: transform;
     }
 
@@ -581,10 +586,14 @@
       --keyboard-gap: 5px;
       --keyboard-key: clamp(28px, calc((100vw - 52px) / 9.8), 44px);
       --keyboard-wide: clamp(50px, calc((100vw - 52px) / 5.55), 92px);
+      --keyboard-scale: 1;
       display: grid;
       gap: 7px;
       width: min(100%, calc(100vw - 10px));
+      max-width: calc(100vw - 8px);
       padding-bottom: env(safe-area-inset-bottom);
+      transform: scale(var(--keyboard-scale));
+      transform-origin: top center;
       touch-action: manipulation;
       user-select: none;
     }
@@ -843,7 +852,7 @@
 
       body.playing .app {
         min-height: 100svh;
-        padding: 6px 5px max(6px, env(safe-area-inset-bottom));
+        padding: 6px 4px max(6px, env(safe-area-inset-bottom));
       }
 
       body.playing .meta {
@@ -866,8 +875,8 @@
 
       .keyboard {
         --keyboard-gap: 3px;
-        --keyboard-key: clamp(26px, calc((100vw - 34px) / 9.8), 46px);
-        --keyboard-wide: clamp(48px, calc((100vw - 34px) / 5.55), 96px);
+        --keyboard-key: clamp(22px, calc((100vw - 34px) / 9.8), 46px);
+        --keyboard-wide: clamp(40px, calc((100vw - 34px) / 5.55), 96px);
       }
 
       .key {
@@ -1758,6 +1767,7 @@
       offsetY: 0,
       rect: null
     };
+    let keyboardFitFrame = 0;
 
     const resultDrag = {
       active: false,
@@ -1829,6 +1839,23 @@
         }
         keyboard.append(row);
       }
+      fitKeyboardToViewport();
+    }
+
+    function fitKeyboardToViewport() {
+      cancelAnimationFrame(keyboardFitFrame);
+      keyboardFitFrame = requestAnimationFrame(() => {
+        keyboard.style.setProperty("--keyboard-scale", "1");
+        const viewportWidth = Math.floor(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth);
+        const availableWidth = Math.max(240, viewportWidth - 8);
+        const rows = [...keyboard.querySelectorAll(".key-row")];
+        const widestRow = rows.reduce((max, row) => Math.max(max, row.scrollWidth, row.getBoundingClientRect().width), 0);
+        const scale = widestRow > availableWidth ? Math.max(0.78, availableWidth / widestRow) : 1;
+        keyboard.style.setProperty("--keyboard-scale", String(scale));
+        if (keyboardDrag.offsetX || keyboardDrag.offsetY) {
+          window.requestAnimationFrame(() => setKeyboardOffset(keyboardDrag.offsetX, keyboardDrag.offsetY));
+        }
+      });
     }
 
     function setKeyboardOffset(x, y, baseRect = keyboardTray.getBoundingClientRect(), baseX = keyboardDrag.offsetX, baseY = keyboardDrag.offsetY) {
@@ -1982,6 +2009,7 @@
 
     function setPlayingMode(enabled) {
       document.body.classList.toggle("playing", Boolean(enabled));
+      fitKeyboardToViewport();
     }
 
     function reset(answerOverride = null) {
@@ -3288,6 +3316,9 @@
     document.getElementById("sparkButton").addEventListener("click", () => {
       window.location.href = "spark.html";
     });
+    window.addEventListener("resize", fitKeyboardToViewport);
+    window.visualViewport?.addEventListener("resize", fitKeyboardToViewport);
+    window.visualViewport?.addEventListener("scroll", fitKeyboardToViewport);
     window.setInterval(refreshRoomList, 5000);
 
     state.nickname = localStorage.getItem(STORAGE_KEY) || "";
