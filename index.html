@@ -935,7 +935,7 @@
           <button class="mini-button" id="createRoomButton">방 만들기</button>
           <input class="room-input" id="roomCodeInput" maxlength="6" placeholder="방 코드">
           <button class="mini-button" id="joinRoomButton">입장</button>
-          <select class="length-select" id="wordLengthSelect" title="낱자 수" aria-label="낱자 수" hidden>
+          <select class="length-select" id="wordLengthSelect" title="낱자 수" aria-label="낱자 수">
             <option value="5">5낱자</option>
             <option value="6">6낱자</option>
           </select>
@@ -2563,7 +2563,7 @@
         return;
       }
       try {
-        const data = await apiPost("/api/room", { name: state.nickname, clientId: getClientId() });
+        const data = await apiPost("/api/room", { name: state.nickname, clientId: getClientId(), wordLength: Number(wordLengthSelect.value) || 5 });
         enterRoom(data);
         await navigator.clipboard.writeText(`단어배틀 방 초대\n${roomUrl(data.room)}`);
         showToast("방을 만들고 초대 링크를 복사했어요");
@@ -2728,6 +2728,7 @@
       }
       const isHost = roomState.hostId === roomState.playerId;
       const count = roomState.players.length;
+      renderChatMessages(data.chat || []);
       const timerText = roomState.started && roomState.endsAt ? ` &middot; ${formatTimeLeft(roomState.endsAt)}` : "";
       roomStatus.innerHTML = `&#48169; ${roomState.room} &middot; ${count}/5&#47749;<span class="round-timer">${timerText}</span>`;
       roomPlayers.hidden = false;
@@ -2982,7 +2983,7 @@
       roomCodeInput.hidden = false;
       readyButton.hidden = true;
       startRoomButton.hidden = true;
-      wordLengthSelect.hidden = true;
+      wordLengthSelect.hidden = false;
       leaveRoomButton.hidden = true;
       gameLeaveButton.hidden = true;
       clearRoomSession();
@@ -3033,6 +3034,13 @@
       row.innerHTML = `<strong>${escapeHtml(message.name)}</strong> ${escapeHtml(message.text)}`;
       chatLog.append(row);
       chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function renderChatMessages(messages) {
+      chatLog.innerHTML = "";
+      for (const message of messages) {
+        addChatMessage(message);
+      }
     }
 
     function decomposeText(text) {
@@ -3309,7 +3317,13 @@
     startRoomButton.addEventListener("click", startRoomGame);
     hintButton.addEventListener("click", revealHint);
     wordLengthSelect.addEventListener("change", () => {
-      if (!roomState.started) setWordLength(wordLengthSelect.value);
+      if (roomState.started) return;
+      setWordLength(wordLengthSelect.value);
+      if (!roomState.joined) {
+        reset();
+      } else {
+        clearBoardForWaiting();
+      }
     });
     keyboardLayoutSelect.addEventListener("change", () => {
       state.keyboardLayout = keyboardLayoutSelect.value === "cheonjiin" ? "cheonjiin" : "qwerty";

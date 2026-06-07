@@ -189,6 +189,7 @@ function publicState(room) {
     countdownUntil: room.countdownUntil,
     endsAt: room.endsAt,
     wordLength: room.wordLength,
+    chat: room.chat.slice(-30),
     players: [...room.players.values()].map((player) => ({
       id: player.id,
       name: player.name,
@@ -447,7 +448,7 @@ async function handleApi(req, res, pathname) {
         answer: null,
         ownerIp: ip,
         previousWord: "",
-        wordLength: 5,
+        wordLength: Number(body.wordLength) === 6 ? 6 : 5,
         countdownUntil: 0,
         endsAt: 0,
         timer: null,
@@ -455,6 +456,7 @@ async function handleApi(req, res, pathname) {
         chat: []
       };
       rooms.set(code, room);
+      broadcastSystem(room, `${player.name}님이 입장했습니다.`);
       sendJson(res, 200, { room: code, playerId: player.id, state: publicState(room) });
       return;
     }
@@ -488,6 +490,7 @@ async function handleApi(req, res, pathname) {
       const player = { id: makePlayerId(), clientId, name, ready: false, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       room.players.set(player.id, player);
       broadcastState(room);
+      broadcastSystem(room, `${player.name}님이 입장했습니다.`);
       sendJson(res, 200, { room: room.code, playerId: player.id, state: publicState(room) });
       return;
     }
