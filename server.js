@@ -26,6 +26,7 @@ const RATE_LIMIT_RULES = {
   "POST /api/start": { windowMs: 60000, max: 20 },
   "POST /api/result": { windowMs: 60000, max: 45 },
   "POST /api/chat": { windowMs: 60000, max: 20 },
+  "POST /api/length": { windowMs: 60000, max: 20 },
   "POST /api/ready": { windowMs: 60000, max: 30 },
   "POST /api/leave": { windowMs: 60000, max: 30 },
   "POST /api/kick": { windowMs: 60000, max: 20 }
@@ -503,6 +504,24 @@ async function handleApi(req, res, pathname) {
       player.ready = !player.ready;
       broadcastState(room);
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/length") {
+      const room = requireRoom(body.room);
+      const player = requirePlayer(room, body.playerId);
+      if (room.hostId !== player.id) throw new Error("방장만 낱자 수를 바꿀 수 있어요");
+      if (room.started || room.countdownUntil) throw new Error("게임 준비 중이나 진행 중에는 바꿀 수 없어요");
+      const nextLength = Number(body.wordLength) === 6 ? 6 : 5;
+      if (room.wordLength !== nextLength) {
+        room.wordLength = nextLength;
+        for (const item of room.players.values()) {
+          item.ready = item.id === room.hostId;
+        }
+        broadcastSystem(room, `방장이 ${nextLength}낱자로 변경했습니다.`);
+      }
+      broadcastState(room);
+      sendJson(res, 200, { ok: true, state: publicState(room) });
       return;
     }
 
