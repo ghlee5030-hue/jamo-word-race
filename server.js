@@ -182,6 +182,10 @@ function cleanName(name) {
   return String(name || "손님").trim().replace(/\s+/g, " ").slice(0, 14) || "손님";
 }
 
+function cleanGameMode(mode) {
+  return mode === "initial" ? "initial" : "jamo";
+}
+
 function publicState(room) {
   return {
     code: room.code,
@@ -189,6 +193,7 @@ function publicState(room) {
     started: room.started,
     countdownUntil: room.countdownUntil,
     endsAt: room.endsAt,
+    gameMode: cleanGameMode(room.gameMode),
     wordLength: room.wordLength,
     chat: room.chat.slice(-30),
     players: [...room.players.values()].map((player) => ({
@@ -249,6 +254,7 @@ function publicRoomList() {
     .map((room) => ({
       code: room.code,
       count: room.players.size,
+      gameMode: cleanGameMode(room.gameMode),
       wordLength: room.wordLength,
       hostName: room.players.get(room.hostId)?.name || "방장"
     }))
@@ -449,6 +455,7 @@ async function handleApi(req, res, pathname) {
         answer: null,
         ownerIp: ip,
         previousWord: "",
+        gameMode: cleanGameMode(body.gameMode),
         wordLength: Number(body.wordLength) === 6 ? 6 : 5,
         countdownUntil: 0,
         endsAt: 0,
@@ -513,12 +520,19 @@ async function handleApi(req, res, pathname) {
       if (room.hostId !== player.id) throw new Error("방장만 낱자 수를 바꿀 수 있어요");
       if (room.started || room.countdownUntil) throw new Error("게임 준비 중이나 진행 중에는 바꿀 수 없어요");
       const nextLength = Number(body.wordLength) === 6 ? 6 : 5;
-      if (room.wordLength !== nextLength) {
+      const nextMode = cleanGameMode(body.gameMode);
+      if (room.wordLength !== nextLength || cleanGameMode(room.gameMode) !== nextMode) {
+        const lengthChanged = room.wordLength !== nextLength;
+        const modeChanged = cleanGameMode(room.gameMode) !== nextMode;
         room.wordLength = nextLength;
+        room.gameMode = nextMode;
         for (const item of room.players.values()) {
           item.ready = item.id === room.hostId;
         }
-        broadcastSystem(room, `방장이 ${nextLength}낱자로 변경했습니다.`);
+        const modeLabel = nextMode === "initial" ? "초성" : "자모";
+        if (lengthChanged && modeChanged) broadcastSystem(room, `방장이 ${modeLabel} · ${nextLength}낱자로 변경했습니다.`);
+        else if (modeChanged) broadcastSystem(room, `방장이 ${modeLabel} 모드로 변경했습니다.`);
+        else broadcastSystem(room, `방장이 ${nextLength}낱자로 변경했습니다.`);
       }
       broadcastState(room);
       sendJson(res, 200, { ok: true, state: publicState(room) });
@@ -557,6 +571,7 @@ async function handleApi(req, res, pathname) {
       if (room.players.size > 5) throw new Error("최대 5명까지 플레이할 수 있어요");
       const everyoneReady = [...room.players.values()].every((player) => player.ready || player.id === room.hostId);
       if (!everyoneReady) throw new Error("아직 준비하지 않은 사람이 있어요");
+      room.gameMode = cleanGameMode(body.gameMode);
       room.wordLength = Number(body.wordLength) === 6 ? 6 : 5;
       room.answer = pickAnswer(room.previousWord, room.wordLength);
       room.previousWord = room.answer.word;

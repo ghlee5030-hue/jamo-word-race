@@ -344,6 +344,18 @@
       outline: 0;
     }
 
+    .mode-select {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 9px;
+      color: var(--ink);
+      background: var(--panel-2);
+      font: inherit;
+      font-weight: 850;
+      outline: 0;
+    }
+
     .chat-box {
       display: grid;
       gap: 7px;
@@ -371,6 +383,13 @@
 
     .chat-message strong {
       color: var(--ink);
+    }
+
+    .chat-time {
+      margin-left: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
     }
 
     .chat-form {
@@ -945,6 +964,10 @@
           <button class="mini-button" id="createRoomButton">방 만들기</button>
           <input class="room-input" id="roomCodeInput" maxlength="6" placeholder="방 코드">
           <button class="mini-button" id="joinRoomButton">입장</button>
+          <select class="mode-select" id="gameModeSelect" title="게임 방식" aria-label="게임 방식">
+            <option value="jamo">자모</option>
+            <option value="initial">초성</option>
+          </select>
           <select class="length-select" id="wordLengthSelect" title="낱자 수" aria-label="낱자 수">
             <option value="5">5낱자</option>
             <option value="6">6낱자</option>
@@ -1784,6 +1807,7 @@
     const roomPlayers = document.getElementById("roomPlayers");
     const availableRooms = document.getElementById("availableRooms");
     const roomCodeInput = document.getElementById("roomCodeInput");
+    const gameModeSelect = document.getElementById("gameModeSelect");
     const wordLengthSelect = document.getElementById("wordLengthSelect");
     const createRoomButton = document.getElementById("createRoomButton");
     const joinRoomButton = document.getElementById("joinRoomButton");
@@ -1807,6 +1831,7 @@
 
     const state = {
       answer: ANSWERS[0],
+      gameMode: "jamo",
       wordLength: DEFAULT_WORD_LENGTH,
       row: 0,
       col: 0,
@@ -1831,6 +1856,7 @@
       started: false,
       eventSource: null,
       players: [],
+      gameMode: "jamo",
       wordLength: DEFAULT_WORD_LENGTH,
       endsAt: 0,
       countdownTimer: null,
@@ -1869,13 +1895,50 @@
       return ANSWERS_BY_LENGTH[length] || ANSWERS_BY_LENGTH[DEFAULT_WORD_LENGTH];
     }
 
+    function normalizeGameMode(mode) {
+      return mode === "initial" ? "initial" : "jamo";
+    }
+
+    function getInitialsFromWord(word) {
+      const initials = [];
+      for (const char of String(word || "")) {
+        const code = char.charCodeAt(0);
+        if (code < 0xac00 || code > 0xd7a3) continue;
+        initials.push(INITIALS[Math.floor((code - 0xac00) / 588)]);
+      }
+      return initials;
+    }
+
+    function getInitialClue(answer = state.answer) {
+      return getInitialsFromWord(answer?.word).join(" ");
+    }
+
+    function updateGuideText() {
+      if (state.gameMode === "initial") {
+        const clue = getInitialClue();
+        guideText.textContent = clue
+          ? `초성 힌트 ${clue} · 초성이 같은 사전 단어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`
+          : `초성이 같은 사전 단어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`;
+        return;
+      }
+      guideText.textContent = `사전 표제어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`;
+    }
+
+    function setGameMode(mode) {
+      const nextMode = normalizeGameMode(mode);
+      state.gameMode = nextMode;
+      roomState.gameMode = nextMode;
+      gameModeSelect.value = nextMode;
+      updateGuideText();
+    }
+
     function setWordLength(length) {
       const nextLength = Number(length) === 6 ? 6 : 5;
       state.wordLength = nextLength;
       roomState.wordLength = nextLength;
       document.documentElement.style.setProperty("--word-length", String(nextLength));
       wordLengthSelect.value = String(nextLength);
-      guideText.textContent = `사전 표제어를 자음과 모음 ${nextLength}칸으로 입력하세요`;
+      updateGuideText();
       updateTryCount();
     }
 
@@ -2112,6 +2175,7 @@
       state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
       makeBoard();
       makeKeyboard();
+      updateGuideText();
       updateTryCount();
       updateRoundClock();
       resultPanel.hidden = true;
@@ -2132,6 +2196,7 @@
       state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
       makeBoard();
       makeKeyboard();
+      updateGuideText();
       updateTryCount();
       updateRoundClock();
     }
@@ -2224,11 +2289,15 @@
         return;
       }
 
-      const result = scoreGuess(guess, state.answer.jamo);
+      const guessMatchesInitial = state.gameMode === "initial"
+        && matchedWords.some((word) => getInitialsFromWord(word).join("") === getInitialsFromWord(state.answer.word).join(""));
+      const result = guessMatchesInitial
+        ? Array(state.answer.jamo.length).fill("correct")
+        : scoreGuess(guess, state.answer.jamo);
       reveal(guess, result);
       state.guesses.push({ guess, result, word: matchedWords[0] });
 
-      if (guess.join("") === state.answer.jamo.join("")) {
+      if (guess.join("") === state.answer.jamo.join("") || guessMatchesInitial) {
         state.done = true;
         window.setTimeout(() => openResult(true), 650);
         return;
@@ -2636,7 +2705,12 @@
         return;
       }
       try {
-        const data = await apiPost("/api/room", { name: state.nickname, clientId: getClientId(), wordLength: Number(wordLengthSelect.value) || 5 });
+        const data = await apiPost("/api/room", {
+          name: state.nickname,
+          clientId: getClientId(),
+          wordLength: Number(wordLengthSelect.value) || 5,
+          gameMode: gameModeSelect.value
+        });
         enterRoom(data);
         await navigator.clipboard.writeText(`단어배틀 방 초대\n${roomUrl(data.room)}`);
         showToast("방을 만들고 초대 링크를 복사했어요");
@@ -2686,7 +2760,7 @@
         }
         availableRooms.innerHTML = list.map((room) => `
           <div class="available-room">
-            <span><strong>${escapeHtml(room.code)}</strong> · ${room.count}/5명 · ${room.wordLength}낱자 · 방장 ${escapeHtml(room.hostName)}</span>
+            <span><strong>${escapeHtml(room.code)}</strong> · ${room.count}/5명 · ${room.gameMode === "initial" ? "초성" : "자모"} · ${room.wordLength}낱자 · 방장 ${escapeHtml(room.hostName)}</span>
             <button class="mini-button" type="button" data-room-code="${escapeHtml(room.code)}">입장</button>
           </div>
         `).join("");
@@ -2778,6 +2852,9 @@
       roomState.started = data.started;
       roomState.endsAt = data.endsAt || 0;
       roomState.players = data.players || [];
+      const nextGameMode = data.gameMode ? normalizeGameMode(data.gameMode) : state.gameMode;
+      const gameModeChanged = state.gameMode !== nextGameMode;
+      if (data.gameMode) setGameMode(nextGameMode);
       const me = roomState.players.find((player) => player.id === roomState.playerId);
       const isSittingOut = Boolean(me?.leftRound && roomState.started);
       if (isSittingOut && !roomState.sittingOut) {
@@ -2792,7 +2869,9 @@
         const nextLength = Number(data.wordLength) === 6 ? 6 : 5;
         const wordLengthChanged = state.wordLength !== nextLength;
         setWordLength(nextLength);
-        if (wordLengthChanged) clearBoardForWaiting();
+        if (wordLengthChanged || gameModeChanged) clearBoardForWaiting();
+      } else if (!roomState.started && gameModeChanged) {
+        clearBoardForWaiting();
       }
       updateRoundClock();
       if (wasStarted && !roomState.started) {
@@ -2826,6 +2905,8 @@
       roomCodeInput.hidden = true;
       readyButton.hidden = false;
       startRoomButton.hidden = !isHost;
+      gameModeSelect.hidden = false;
+      gameModeSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
       wordLengthSelect.hidden = false;
       wordLengthSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
       leaveRoomButton.hidden = false;
@@ -2860,7 +2941,12 @@
     async function startRoomGame() {
       if (!roomState.joined) return;
       try {
-        await apiPost("/api/start", { room: roomState.room, playerId: roomState.playerId, wordLength: Number(wordLengthSelect.value) || 5 });
+        await apiPost("/api/start", {
+          room: roomState.room,
+          playerId: roomState.playerId,
+          wordLength: Number(wordLengthSelect.value) || 5,
+          gameMode: gameModeSelect.value
+        });
       } catch (error) {
         showToast(error.message);
       }
@@ -3061,7 +3147,10 @@
       roomCodeInput.hidden = false;
       readyButton.hidden = true;
       startRoomButton.hidden = true;
+      gameModeSelect.hidden = false;
+      gameModeSelect.disabled = false;
       wordLengthSelect.hidden = false;
+      wordLengthSelect.disabled = false;
       leaveRoomButton.hidden = true;
       gameLeaveButton.hidden = true;
       clearRoomSession();
@@ -3106,10 +3195,15 @@
       }
     }
 
+    function formatChatTime(at) {
+      const date = new Date(Number(at) || Date.now());
+      return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    }
+
     function addChatMessage(message) {
       const row = document.createElement("div");
       row.className = "chat-message";
-      row.innerHTML = `<strong>${escapeHtml(message.name)}</strong> ${escapeHtml(message.text)}`;
+      row.innerHTML = `<strong>${escapeHtml(message.name)}</strong><span class="chat-time">${formatChatTime(message.at)}</span> ${escapeHtml(message.text)}`;
       chatLog.append(row);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -3399,7 +3493,12 @@
       const nextLength = Number(wordLengthSelect.value) || 5;
       if (roomState.joined) {
         try {
-          const data = await apiPost("/api/length", { room: roomState.room, playerId: roomState.playerId, wordLength: nextLength });
+          const data = await apiPost("/api/length", {
+            room: roomState.room,
+            playerId: roomState.playerId,
+            wordLength: nextLength,
+            gameMode: gameModeSelect.value
+          });
           updateRoomView(data.state);
         } catch (error) {
           wordLengthSelect.value = String(roomState.wordLength || state.wordLength || DEFAULT_WORD_LENGTH);
@@ -3413,6 +3512,27 @@
       } else {
         clearBoardForWaiting();
       }
+    });
+    gameModeSelect.addEventListener("change", async () => {
+      if (roomState.started) return;
+      const nextMode = normalizeGameMode(gameModeSelect.value);
+      if (roomState.joined) {
+        try {
+          const data = await apiPost("/api/length", {
+            room: roomState.room,
+            playerId: roomState.playerId,
+            wordLength: Number(wordLengthSelect.value) || 5,
+            gameMode: nextMode
+          });
+          updateRoomView(data.state);
+        } catch (error) {
+          gameModeSelect.value = roomState.gameMode || state.gameMode || "jamo";
+          showToast(error.message);
+        }
+        return;
+      }
+      setGameMode(nextMode);
+      reset();
     });
     keyboardLayoutSelect.addEventListener("change", () => {
       state.keyboardLayout = keyboardLayoutSelect.value === "cheonjiin" ? "cheonjiin" : "qwerty";
