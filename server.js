@@ -9,6 +9,7 @@ const rateBuckets = new Map();
 const roomCreateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
+const INITIAL_ROUND_MS = 90000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 0;
@@ -24,6 +25,7 @@ const RATE_LIMIT_RULES = {
   "POST /api/room": { windowMs: 60000, max: 6 },
   "POST /api/join": { windowMs: 60000, max: 20 },
   "POST /api/start": { windowMs: 60000, max: 20 },
+  "POST /api/initial-guess": { windowMs: 10000, max: 40 },
   "POST /api/result": { windowMs: 60000, max: 45 },
   "POST /api/chat": { windowMs: 60000, max: 20 },
   "POST /api/length": { windowMs: 60000, max: 20 },
@@ -186,6 +188,22 @@ function cleanGameMode(mode) {
   return mode === "initial" ? "initial" : "jamo";
 }
 
+const INITIALS = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+
+function getInitialsFromWord(word) {
+  const initials = [];
+  for (const char of String(word || "")) {
+    const code = char.charCodeAt(0);
+    if (code < 0xac00 || code > 0xd7a3) continue;
+    initials.push(INITIALS[Math.floor((code - 0xac00) / 588)]);
+  }
+  return initials;
+}
+
+function getInitialKey(word) {
+  return getInitialsFromWord(word).join("");
+}
+
 function publicState(room) {
   return {
     code: room.code,
@@ -202,6 +220,7 @@ function publicState(room) {
       ready: player.ready,
       result: player.result,
       tries: player.tries,
+      score: player.score || 0,
       leftRound: Boolean(player.leftRound),
       finishedAt: player.finishedAt
     })).sort((a, b) => {
@@ -303,6 +322,10 @@ function sweepIdlePlayers() {
 
 function finishTimedOutPlayers(room) {
   if (!room.started) return;
+  if (cleanGameMode(room.gameMode) === "initial") {
+    finishInitialRound(room);
+    return;
+  }
   const now = Date.now();
   for (const player of room.players.values()) {
     if (!player.result) {
@@ -320,6 +343,20 @@ function finishTimedOutPlayers(room) {
     player.ready = player.id === room.hostId;
     player.leftRound = false;
   }
+  broadcast(room, { type: "timeout", state: publicState(room) });
+}
+
+function finishInitialRound(room) {
+  if (!room.started) return;
+  const now = Date.now();
+  const players = [...room.players.values()].filter((player) => !player.leftRound);
+  const highScore = Math.max(0, ...players.map((player) => player.score || 0));
+  for (const player of room.players.values()) {
+    player.result = !player.leftRound && highScore > 0 && (player.score || 0) === highScore ? "win" : "loss";
+    player.tries = player.score || 0;
+    player.finishedAt = now;
+  }
+  finishRound(room);
   broadcast(room, { type: "timeout", state: publicState(room) });
 }
 
@@ -444,7 +481,7 @@ async function handleApi(req, res, pathname) {
       }
       const code = makeRoomCode();
       const now = Date.now();
-      const player = { id: makePlayerId(), clientId, name: cleanName(body.name), ready: true, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
+      const player = { id: makePlayerId(), clientId, name: cleanName(body.name), ready: true, result: "", tries: 0, score: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       const room = {
         code,
         hostId: player.id,
@@ -495,7 +532,7 @@ async function handleApi(req, res, pathname) {
       if (room.players.size >= 5) throw new Error("방은 최대 5명까지 입장할 수 있어요");
       if (room.started || room.countdownUntil) throw new Error("이미 시작한 방입니다");
       const now = Date.now();
-      const player = { id: makePlayerId(), clientId, name, ready: false, result: "", tries: 0, finishedAt: 0, joinedAt: now, lastActive: now };
+      const player = { id: makePlayerId(), clientId, name, ready: false, result: "", tries: 0, score: 0, finishedAt: 0, joinedAt: now, lastActive: now };
       room.players.set(player.id, player);
       broadcastState(room);
       broadcastSystem(room, `${player.name}님이 입장했습니다.`);
@@ -577,10 +614,11 @@ async function handleApi(req, res, pathname) {
       room.previousWord = room.answer.word;
       room.started = false;
       room.countdownUntil = Date.now() + COUNTDOWN_MS;
-      room.endsAt = room.countdownUntil + ROUND_MS;
+      room.endsAt = room.countdownUntil + (room.gameMode === "initial" ? INITIAL_ROUND_MS : ROUND_MS);
       for (const player of room.players.values()) {
         player.result = "";
         player.tries = 0;
+        player.score = 0;
         player.finishedAt = 0;
         player.leftRound = false;
       }
@@ -594,7 +632,7 @@ async function handleApi(req, res, pathname) {
       }, COUNTDOWN_MS);
       room.timer = setTimeout(() => {
         finishTimedOutPlayers(room);
-      }, COUNTDOWN_MS + ROUND_MS);
+      }, Math.max(0, room.endsAt - Date.now()));
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -624,6 +662,36 @@ async function handleApi(req, res, pathname) {
       }
       broadcastState(room);
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/initial-guess") {
+      const room = requireRoom(body.room);
+      const player = requirePlayer(room, body.playerId);
+      if (cleanGameMode(room.gameMode) !== "initial") throw new Error("초성 모드가 아닙니다");
+      if (!room.started) throw new Error("아직 시작하지 않았어요");
+      if (player.leftRound || player.result) throw new Error("이미 이번 라운드에서 나갔어요");
+      const word = String(body.word || "").trim().slice(0, 20);
+      if (!word) throw new Error("단어를 입력하세요");
+      if (getInitialKey(word) !== getInitialKey(room.answer?.word)) {
+        sendJson(res, 200, { ok: true, awarded: false, message: "초성이 달라요", state: publicState(room) });
+        return;
+      }
+      player.score = (player.score || 0) + 1;
+      player.tries = player.score;
+      player.lastActive = Date.now();
+      const previousAnswer = room.answer;
+      room.answer = pickAnswer(room.previousWord, room.wordLength);
+      room.previousWord = room.answer.word;
+      broadcast(room, {
+        type: "initialQuestion",
+        answer: room.answer,
+        winnerName: player.name,
+        guessedWord: word,
+        previousAnswer,
+        state: publicState(room)
+      });
+      sendJson(res, 200, { ok: true, awarded: true, score: player.score, answer: room.answer, state: publicState(room) });
       return;
     }
 

@@ -2289,15 +2289,22 @@
         return;
       }
 
-      const guessMatchesInitial = state.gameMode === "initial"
-        && matchedWords.some((word) => getInitialsFromWord(word).join("") === getInitialsFromWord(state.answer.word).join(""));
-      const result = guessMatchesInitial
-        ? Array(state.answer.jamo.length).fill("correct")
-        : scoreGuess(guess, state.answer.jamo);
+      if (state.gameMode === "initial") {
+        const answerInitialKey = getInitialsFromWord(state.answer.word).join("");
+        const matchedInitialWord = matchedWords.find((word) => getInitialsFromWord(word).join("") === answerInitialKey);
+        if (!matchedInitialWord) {
+          rejectRow("초성이 달라요");
+          return;
+        }
+        await sendInitialGuess(matchedInitialWord);
+        return;
+      }
+
+      const result = scoreGuess(guess, state.answer.jamo);
       reveal(guess, result);
       state.guesses.push({ guess, result, word: matchedWords[0] });
 
-      if (guess.join("") === state.answer.jamo.join("") || guessMatchesInitial) {
+      if (guess.join("") === state.answer.jamo.join("")) {
         state.done = true;
         window.setTimeout(() => openResult(true), 650);
         return;
@@ -2811,6 +2818,7 @@
         if (message.type === "state") updateRoomView(message.state);
         if (message.type === "countdown") beginCountdown(message.answer, message.startsAt, message.state);
         if (message.type === "start") startSharedGame(message.answer, message.state);
+        if (message.type === "initialQuestion") handleInitialQuestion(message);
         if (message.type === "timeout") handleRoomTimeout(message.state);
         if (message.type === "roundLeft") handleRoundLeft(message.state);
         if (message.type === "chat") addChatMessage(message.message);
@@ -2892,6 +2900,7 @@
       roomPlayers.innerHTML = roomState.players.map((player) => {
         const marks = [
           player.id === roomState.hostId ? "방장" : "",
+          state.gameMode === "initial" ? `${player.score || 0}점` : "",
           player.ready ? "준비" : "대기",
           player.result ? `${player.result === "win" ? "승" : "패"} ${player.tries}회` : ""
         ].filter(Boolean).join(" · ");
@@ -2952,6 +2961,28 @@
       }
     }
 
+    async function sendInitialGuess(word) {
+      if (!roomState.joined || !roomState.started) {
+        openResult(true);
+        return;
+      }
+      try {
+        const data = await apiPost("/api/initial-guess", {
+          room: roomState.room,
+          playerId: roomState.playerId,
+          word
+        });
+        if (data.awarded) {
+          state.done = true;
+          showToast(`${word} 정답! +1점`);
+        } else {
+          rejectRow(data.message || "이미 다른 사람이 맞혔어요");
+        }
+      } catch (error) {
+        showToast(error.message);
+      }
+    }
+
     function beginCountdown(answer, startsAt, data) {
       updateRoomView(data);
       reset(answer);
@@ -2983,6 +3014,17 @@
       countdownOverlay.hidden = true;
       startRoundTimer();
       showToast("같은 단어로 시작!");
+    }
+
+    function handleInitialQuestion(message) {
+      updateRoomView(message.state);
+      reset(message.answer);
+      setPlayingMode(true);
+      resultPanel.hidden = true;
+      countdownOverlay.hidden = true;
+      const name = message.winnerName ? `${message.winnerName} +1점` : "다음 문제";
+      const word = message.guessedWord ? ` (${message.guessedWord})` : "";
+      showToast(`${name}${word}`);
     }
 
     function startRoundTimer() {
@@ -3039,6 +3081,21 @@
       countdownOverlay.hidden = true;
       gameLeaveButton.hidden = true;
       resetResultDialogPosition();
+      if (state.gameMode === "initial") {
+        const ranking = [...players]
+          .sort((a, b) => (b.score || 0) - (a.score || 0) || a.name.localeCompare(b.name, "ko"))
+          .map((player) => `${player.name} ${player.score || 0}점`)
+          .join("\n");
+        resultTitle.textContent = won ? "승리!" : "패배!";
+        resultText.textContent = [
+          `최종 점수`,
+          ranking || "점수가 없습니다.",
+          `승리: ${winners.length ? winners.join(", ") : "없음"}`,
+          won ? `${state.nickname}님이 가장 많이 맞혔어요.` : LOSS_TAUNTS[Math.floor(Math.random() * LOSS_TAUNTS.length)]
+        ].join("\n");
+        resultPanel.hidden = false;
+        return;
+      }
       resultTitle.textContent = won ? "승리!" : "패배!";
       const lines = [
         `승리: ${winners.length ? winners.join(", ") : "없음"}`,
@@ -3072,6 +3129,11 @@
 
     function handleLocalTimeout() {
       if (state.done) return;
+      if (roomState.joined && state.gameMode === "initial") {
+        state.done = true;
+        showToast("점수 집계 중...");
+        return;
+      }
       state.done = true;
       openResult(false);
     }
