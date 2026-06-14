@@ -505,6 +505,16 @@
       background: var(--green);
     }
 
+    .tile.hint {
+      border-color: var(--green);
+      background: var(--green);
+    }
+
+    .tile.hint::after {
+      content: attr(data-hint);
+      color: var(--ink);
+    }
+
     .tile.present {
       border-color: var(--yellow);
       background: var(--yellow);
@@ -1491,7 +1501,11 @@
       { word: "어른", jamo: ["ㅇ", "ㅓ", "ㄹ", "ㅡ", "ㄴ"] },
       { word: "주인", jamo: ["ㅈ", "ㅜ", "ㅇ", "ㅣ", "ㄴ"] },
       { word: "초점", jamo: ["ㅊ", "ㅗ", "ㅈ", "ㅓ", "ㅁ"] },
-      { word: "하품", jamo: ["ㅎ", "ㅏ", "ㅍ", "ㅜ", "ㅁ"] }
+      { word: "하품", jamo: ["ㅎ", "ㅏ", "ㅍ", "ㅜ", "ㅁ"] },
+      { word: "약사", jamo: ["ㅇ", "ㅑ", "ㄱ", "ㅅ", "ㅏ"] },
+      { word: "진료", jamo: ["ㅈ", "ㅣ", "ㄴ", "ㄹ", "ㅛ"] },
+      { word: "접수", jamo: ["ㅈ", "ㅓ", "ㅂ", "ㅅ", "ㅜ"] },
+      { word: "기능", jamo: ["ㄱ", "ㅣ", "ㄴ", "ㅡ", "ㅇ"] }
     ];
 
     const ANSWERS_6 = [
@@ -1612,7 +1626,30 @@
       { word: "중단", jamo: ["ㅈ", "ㅜ", "ㅇ", "ㄷ", "ㅏ", "ㄴ"] },
       { word: "오누이", jamo: ["ㅇ", "ㅗ", "ㄴ", "ㅜ", "ㅇ", "ㅣ"] },
       { word: "토마토", jamo: ["ㅌ", "ㅗ", "ㅁ", "ㅏ", "ㅌ", "ㅗ"] },
-      { word: "호리다", jamo: ["ㅎ", "ㅗ", "ㄹ", "ㅣ", "ㄷ", "ㅏ"] }
+      { word: "약품", jamo: ["ㅇ", "ㅑ", "ㄱ", "ㅍ", "ㅜ", "ㅁ"] },
+      { word: "응급", jamo: ["ㅇ", "ㅡ", "ㅇ", "ㄱ", "ㅡ", "ㅂ"] },
+      { word: "질병", jamo: ["ㅈ", "ㅣ", "ㄹ", "ㅂ", "ㅕ", "ㅇ"] },
+      { word: "증상", jamo: ["ㅈ", "ㅡ", "ㅇ", "ㅅ", "ㅏ", "ㅇ"] },
+      { word: "감염", jamo: ["ㄱ", "ㅏ", "ㅁ", "ㅇ", "ㅕ", "ㅁ"] },
+      { word: "통증", jamo: ["ㅌ", "ㅗ", "ㅇ", "ㅈ", "ㅡ", "ㅇ"] },
+      { word: "구급", jamo: ["ㄱ", "ㅜ", "ㄱ", "ㄱ", "ㅡ", "ㅂ"] },
+      { word: "심장", jamo: ["ㅅ", "ㅣ", "ㅁ", "ㅈ", "ㅏ", "ㅇ"] },
+      { word: "복통", jamo: ["ㅂ", "ㅗ", "ㄱ", "ㅌ", "ㅗ", "ㅇ"] },
+      { word: "물건", jamo: ["ㅁ", "ㅜ", "ㄹ", "ㄱ", "ㅓ", "ㄴ"] },
+      { word: "명령", jamo: ["ㅁ", "ㅕ", "ㅇ", "ㄹ", "ㅕ", "ㅇ"] },
+      { word: "등록", jamo: ["ㄷ", "ㅡ", "ㅇ", "ㄹ", "ㅗ", "ㄱ"] },
+      { word: "접속", jamo: ["ㅈ", "ㅓ", "ㅂ", "ㅅ", "ㅗ", "ㄱ"] },
+      { word: "발음", jamo: ["ㅂ", "ㅏ", "ㄹ", "ㅇ", "ㅡ", "ㅁ"] },
+      { word: "작품", jamo: ["ㅈ", "ㅏ", "ㄱ", "ㅍ", "ㅜ", "ㅁ"] },
+      { word: "상금", jamo: ["ㅅ", "ㅏ", "ㅇ", "ㄱ", "ㅡ", "ㅁ"] },
+      { word: "상품", jamo: ["ㅅ", "ㅏ", "ㅇ", "ㅍ", "ㅜ", "ㅁ"] },
+      { word: "음성", jamo: ["ㅇ", "ㅡ", "ㅁ", "ㅅ", "ㅓ", "ㅇ"] },
+      { word: "현금", jamo: ["ㅎ", "ㅕ", "ㄴ", "ㄱ", "ㅡ", "ㅁ"] },
+      { word: "연습", jamo: ["ㅇ", "ㅕ", "ㄴ", "ㅅ", "ㅡ", "ㅂ"] },
+      { word: "난방", jamo: ["ㄴ", "ㅏ", "ㄴ", "ㅂ", "ㅏ", "ㅇ"] },
+      { word: "장갑", jamo: ["ㅈ", "ㅏ", "ㅇ", "ㄱ", "ㅏ", "ㅂ"] },
+      { word: "창문", jamo: ["ㅊ", "ㅏ", "ㅇ", "ㅁ", "ㅜ", "ㄴ"] },
+      { word: "항공", jamo: ["ㅎ", "ㅏ", "ㅇ", "ㄱ", "ㅗ", "ㅇ"] }
     ];
 
     const ANSWERS_BY_LENGTH = { 5: ANSWERS_5, 6: ANSWERS_6 };
@@ -2107,6 +2144,11 @@
       return tilesInRow().map((tile) => tile.textContent);
     }
 
+    function clearTileHint(tile) {
+      tile.classList.remove("hint");
+      delete tile.dataset.hint;
+    }
+
     function moveToNextEmptyTile() {
       const tiles = tilesInRow();
       const nextIndex = tiles.findIndex((tile) => !tile.textContent);
@@ -2122,6 +2164,7 @@
       }
       const nextTile = board.querySelector(`[data-row="${state.row}"][data-col="${state.col}"]`);
       if (!nextTile) return;
+      clearTileHint(nextTile);
       nextTile.textContent = jamo;
       nextTile.classList.add("filled", "pop");
       window.setTimeout(() => nextTile.classList.remove("pop"), 180);
@@ -2131,8 +2174,8 @@
 
     function replacePreviousJamo(jamo) {
       if (state.done || state.col <= 0 || !VALID_JAMO.has(jamo)) return;
-      if (state.hintedPositions.has(state.col - 1)) return;
       const tile = board.querySelector(`[data-row="${state.row}"][data-col="${state.col - 1}"]`);
+      clearTileHint(tile);
       tile.textContent = jamo;
       tile.classList.add("filled", "pop");
       window.setTimeout(() => tile.classList.remove("pop"), 180);
@@ -2145,12 +2188,12 @@
     function backspace() {
       if (state.done || state.col <= 0) return;
       let nextCol = state.col - 1;
-      while (nextCol >= 0 && state.hintedPositions.has(nextCol)) nextCol -= 1;
       if (nextCol < 0) return;
       state.col = nextCol;
       const tile = board.querySelector(`[data-row="${state.row}"][data-col="${state.col}"]`);
       tile.textContent = "";
       tile.className = "tile";
+      delete tile.dataset.hint;
     }
 
     async function submitGuess() {
@@ -2282,11 +2325,11 @@
       }
       const tile = board.querySelector(`[data-row="${state.row}"][data-col="${hint.index}"]`);
       if (!tile) return;
-      tile.textContent = hint.jamo;
-      tile.className = "tile filled correct pop";
+      tile.textContent = "";
+      tile.className = "tile hint pop";
+      tile.dataset.hint = hint.jamo;
       state.hintUsed = true;
       state.hintedPositions.add(hint.index);
-      setKeyStatus(hint.jamo, "correct");
       moveToNextEmptyTile();
       updateTryCount();
       window.setTimeout(() => tile.classList.remove("pop"), 180);
@@ -2745,7 +2788,12 @@
         showToast("대기실로 이동했어요");
       }
       if (!isSittingOut) roomState.sittingOut = false;
-      if (!roomState.started && data.wordLength) setWordLength(data.wordLength);
+      if (!roomState.started && data.wordLength) {
+        const nextLength = Number(data.wordLength) === 6 ? 6 : 5;
+        const wordLengthChanged = state.wordLength !== nextLength;
+        setWordLength(nextLength);
+        if (wordLengthChanged) clearBoardForWaiting();
+      }
       updateRoundClock();
       if (wasStarted && !roomState.started) {
         stopRoundTimer();
