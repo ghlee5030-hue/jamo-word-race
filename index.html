@@ -2002,9 +2002,10 @@
 
     function updateGameInputMode() {
       const isInitial = state.gameMode === "initial";
+      const useSoloInitialInput = isInitial && !roomState.joined;
       board.hidden = isInitial;
       keyboardTray.hidden = isInitial;
-      initialGuessBox.hidden = !isInitial;
+      initialGuessBox.hidden = !useSoloInitialInput;
       if (isInitial) {
         state.wordLength = 2;
         document.documentElement.style.setProperty("--word-length", "2");
@@ -2981,9 +2982,12 @@
       leaveRoomButton.hidden = false;
       readyButton.textContent = me?.ready ? "준비 완료" : "준비";
       startRoomButton.disabled = !isHost || count < 2 || count > 5 || roomState.started;
-      chatBox.hidden = roomState.started || Boolean(data.countdownUntil);
+      const useChatAsInitialGuess = state.gameMode === "initial" && roomState.started && !isSittingOut;
+      chatBox.hidden = (roomState.started && !useChatAsInitialGuess) || Boolean(data.countdownUntil);
       chatInput.disabled = chatBox.hidden;
       chatSendButton.disabled = chatBox.hidden;
+      chatInput.placeholder = useChatAsInitialGuess ? "정답 단어를 빠르게 입력하세요" : "시작 전 채팅";
+      chatSendButton.textContent = useChatAsInitialGuess ? "입력" : "전송";
       gameLeaveButton.hidden = !(roomState.joined && roomState.started && !isSittingOut);
       if (roomState.started && !isSittingOut) startRoundTimer();
     }
@@ -3284,6 +3288,8 @@
       availableRooms.innerHTML = "";
       chatLog.innerHTML = "";
       chatBox.hidden = true;
+      chatInput.placeholder = "시작 전 채팅";
+      chatSendButton.textContent = "전송";
       createRoomButton.hidden = false;
       joinRoomButton.hidden = false;
       roomCodeInput.hidden = false;
@@ -3329,6 +3335,11 @@
     async function sendChat() {
       const text = chatInput.value.trim();
       if (!text || !roomState.joined) return;
+      if (roomState.started && state.gameMode === "initial" && !roomState.sittingOut) {
+        chatInput.value = "";
+        await sendInitialGuess(text);
+        return;
+      }
       try {
         await apiPost("/api/chat", { room: roomState.room, playerId: roomState.playerId, text });
         chatInput.value = "";
