@@ -410,6 +410,33 @@
       outline: 0;
     }
 
+    .initial-guess-box {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 14px auto 0;
+      width: min(100%, 420px);
+    }
+
+    .initial-guess-box[hidden] {
+      display: none;
+    }
+
+    .initial-guess-input {
+      min-width: 0;
+      flex: 1;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 14px;
+      color: var(--ink);
+      background: var(--panel-2);
+      font: inherit;
+      font-size: 18px;
+      font-weight: 900;
+      outline: 0;
+    }
+
     .round-timer {
       color: var(--gold);
       font-weight: 950;
@@ -994,6 +1021,10 @@
         <span id="guideText">사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
+      <div class="initial-guess-box" id="initialGuessBox" hidden>
+        <input class="initial-guess-input" id="initialGuessInput" maxlength="6" placeholder="정답 단어">
+        <button class="mini-button" id="initialGuessButton" type="button">입력</button>
+      </div>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </section>
 
@@ -1677,6 +1708,7 @@
 
     const ANSWERS_BY_LENGTH = { 5: ANSWERS_5, 6: ANSWERS_6 };
     const ANSWERS = ANSWERS_5;
+    const INITIAL_ANSWERS = ANSWERS_5.filter((answer) => [...answer.word].length === 2);
 
     const EXTRA_ENCYCLOPEDIA_ENTRIES = [
       "가위", "가을", "가지", "감자", "강물", "거울", "고래", "고추", "과자", "구름",
@@ -1774,6 +1806,9 @@
     const encyclopedia = buildEncyclopedia();
 
     const board = document.getElementById("board");
+    const initialGuessBox = document.getElementById("initialGuessBox");
+    const initialGuessInput = document.getElementById("initialGuessInput");
+    const initialGuessButton = document.getElementById("initialGuessButton");
     const keyboard = document.getElementById("keyboard");
     const keyboardTray = document.getElementById("keyboardTray");
     const keyboardHandle = document.getElementById("keyboardHandle");
@@ -1930,6 +1965,7 @@
       state.gameMode = nextMode;
       roomState.gameMode = nextMode;
       gameModeSelect.value = nextMode;
+      updateGameInputMode();
       updateGuideText();
     }
 
@@ -1939,6 +1975,7 @@
       roomState.wordLength = nextLength;
       document.documentElement.style.setProperty("--word-length", String(nextLength));
       wordLengthSelect.value = String(nextLength);
+      updateGameInputMode();
       updateGuideText();
       updateTryCount();
     }
@@ -1951,6 +1988,27 @@
         answer = list[Math.floor(Math.random() * list.length)];
       }
       return answer;
+    }
+
+    function pickInitialAnswer(previousWord = "") {
+      const list = INITIAL_ANSWERS.length ? INITIAL_ANSWERS : ANSWERS_5;
+      if (list.length <= 1) return list[0];
+      let answer = list[Math.floor(Math.random() * list.length)];
+      while (answer.word === previousWord) {
+        answer = list[Math.floor(Math.random() * list.length)];
+      }
+      return answer;
+    }
+
+    function updateGameInputMode() {
+      const isInitial = state.gameMode === "initial";
+      board.hidden = isInitial;
+      keyboardTray.hidden = isInitial;
+      initialGuessBox.hidden = !isInitial;
+      if (isInitial) {
+        state.wordLength = 2;
+        document.documentElement.style.setProperty("--word-length", "2");
+      }
     }
 
     function makeBoard() {
@@ -2162,7 +2220,10 @@
 
     function reset(answerOverride = null) {
       if (isAnswer(answerOverride)) setWordLength(answerOverride.jamo.length);
-      state.answer = isAnswer(answerOverride) ? answerOverride : pickAnswer(state.answer?.word);
+      state.answer = isAnswer(answerOverride)
+        ? answerOverride
+        : (state.gameMode === "initial" ? pickInitialAnswer(state.answer?.word) : pickAnswer(state.answer?.word));
+      if (state.gameMode === "initial") state.wordLength = 2;
       state.row = 0;
       state.col = 0;
       state.done = false;
@@ -2176,6 +2237,8 @@
       state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
       makeBoard();
       makeKeyboard();
+      initialGuessInput.value = "";
+      updateGameInputMode();
       updateGuideText();
       updateTryCount();
       updateRoundClock();
@@ -2197,6 +2260,8 @@
       state.vowelTap = { seq: "", row: -1, col: -1, at: 0 };
       makeBoard();
       makeKeyboard();
+      initialGuessInput.value = "";
+      updateGameInputMode();
       updateGuideText();
       updateTryCount();
       updateRoundClock();
@@ -2958,7 +3023,14 @@
 
     async function sendInitialGuess(words) {
       if (!roomState.joined || !roomState.started) {
-        openResult(true);
+        const guess = String(Array.isArray(words) ? words[0] : words || "").trim();
+        if (!guess) return;
+        if (guess === state.answer.word) {
+          showToast(`${guess} 정답!`);
+          reset();
+        } else {
+          showToast("정답이 아니에요");
+        }
         return;
       }
       const candidates = Array.isArray(words) ? words : [words];
@@ -2978,6 +3050,17 @@
       } catch (error) {
         showToast(error.message);
       }
+    }
+
+    function submitInitialGuessText() {
+      if (state.gameMode !== "initial") return;
+      const word = initialGuessInput.value.trim();
+      if (!word) {
+        showToast("정답 단어를 입력하세요");
+        return;
+      }
+      initialGuessInput.value = "";
+      sendInitialGuess(word);
     }
 
     function beginCountdown(answer, startsAt, data) {
@@ -3500,7 +3583,7 @@
     }
 
     document.addEventListener("keydown", (event) => {
-      if (event.target === nameInput || event.target === chatInput || event.target === roomCodeInput) return;
+      if (event.target === nameInput || event.target === chatInput || event.target === roomCodeInput || event.target === initialGuessInput) return;
       if (event.key === "Enter") {
         event.preventDefault();
         submitGuess();
@@ -3606,6 +3689,10 @@
     chatSendButton.addEventListener("click", sendChat);
     chatInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") sendChat();
+    });
+    initialGuessButton.addEventListener("click", submitInitialGuessText);
+    initialGuessInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") submitInitialGuessText();
     });
     roomCodeInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinRoom();
