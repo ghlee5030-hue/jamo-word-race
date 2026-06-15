@@ -437,6 +437,53 @@
       outline: 0;
     }
 
+    .initial-prompt-card {
+      width: min(100%, 520px);
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #f8fafc;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+    }
+
+    .initial-prompt-card[hidden] {
+      display: none;
+    }
+
+    .initial-prompt-head {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #1d4f86, #173b68);
+      color: #f8fafc;
+      font-size: 24px;
+      font-weight: 950;
+    }
+
+    .initial-prompt-body {
+      display: grid;
+      place-items: center;
+      min-height: 190px;
+      padding: 28px 18px 32px;
+      color: #0b1220;
+    }
+
+    .initial-clue {
+      font-size: clamp(76px, 20vw, 132px);
+      line-height: 1;
+      font-weight: 1000;
+      letter-spacing: 0;
+    }
+
+    .initial-prompt-caption {
+      margin-top: 18px;
+      color: #475569;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
     .round-timer {
       color: var(--gold);
       font-weight: 950;
@@ -1028,6 +1075,13 @@
         <button class="mini-button" id="gameLeaveButton" type="button" hidden>나가기</button>
         <button class="mini-button" id="hintButton" type="button" hidden>힌트</button>
         <span id="guideText">사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
+      </div>
+      <div class="initial-prompt-card" id="initialPromptCard" hidden>
+        <div class="initial-prompt-head" id="initialPromptTitle">초성 문제</div>
+        <div class="initial-prompt-body">
+          <div class="initial-clue" id="initialClueText">ㄱ ㄴ</div>
+          <div class="initial-prompt-caption">떠오르는 2글자 단어를 빠르게 입력하세요</div>
+        </div>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
       <div class="initial-guess-box" id="initialGuessBox" hidden>
@@ -1815,6 +1869,9 @@
     const encyclopedia = buildEncyclopedia();
 
     const board = document.getElementById("board");
+    const initialPromptCard = document.getElementById("initialPromptCard");
+    const initialPromptTitle = document.getElementById("initialPromptTitle");
+    const initialClueText = document.getElementById("initialClueText");
     const initialGuessBox = document.getElementById("initialGuessBox");
     const initialGuessInput = document.getElementById("initialGuessInput");
     const initialGuessButton = document.getElementById("initialGuessButton");
@@ -1960,16 +2017,20 @@
       return getInitialsFromWord(answer?.word).join(" ");
     }
 
+    function updateInitialPrompt() {
+      const clue = getInitialClue();
+      initialPromptTitle.textContent = "초성 문제";
+      initialClueText.textContent = clue || "? ?";
+    }
+
     function updateGuideText() {
       if (!roomState.joined && !state.soloStarted) {
         guideText.textContent = "게임 방식을 고른 뒤 혼자 시작을 누르세요";
         return;
       }
       if (state.gameMode === "initial") {
-        const clue = getInitialClue();
-        guideText.textContent = clue
-          ? `초성 ${clue} · 정답 2글자 단어를 빠르게 입력하세요`
-          : "정답 2글자 단어를 빠르게 입력하세요";
+        updateInitialPrompt();
+        guideText.textContent = "정답 2글자 단어를 빠르게 입력하세요";
         return;
       }
       guideText.textContent = `사전 표제어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`;
@@ -2018,10 +2079,13 @@
     function updateGameInputMode() {
       const isInitial = state.gameMode === "initial";
       const isSoloWaiting = !roomState.joined && !state.soloStarted;
+      const showInitialPrompt = isInitial && ((roomState.joined && roomState.started) || (!roomState.joined && state.soloStarted));
       const useSoloInitialInput = isInitial && !roomState.joined && state.soloStarted;
       board.hidden = isSoloWaiting || isInitial;
       keyboardTray.hidden = isSoloWaiting || isInitial;
+      initialPromptCard.hidden = !showInitialPrompt;
       initialGuessBox.hidden = !useSoloInitialInput;
+      if (showInitialPrompt) updateInitialPrompt();
       if (isInitial) {
         state.wordLength = 2;
         document.documentElement.style.setProperty("--word-length", "2");
@@ -2461,6 +2525,7 @@
 
     function updateTryCount() {
       tryCount.textContent = `${Math.min(state.row + 1, MAX_GUESSES)} / ${MAX_GUESSES}`;
+      tryCount.hidden = state.gameMode === "initial" || (!roomState.joined && !state.soloStarted);
       hintButton.hidden = state.done || state.hintUsed || state.row < 3;
       gameLeaveButton.hidden = !(roomState.joined && roomState.started && !roomState.sittingOut);
     }
