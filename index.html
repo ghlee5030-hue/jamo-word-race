@@ -484,6 +484,16 @@
       font-weight: 800;
     }
 
+    .initial-hint-text {
+      margin-top: 12px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #e0f2fe;
+      color: #075985;
+      font-size: 15px;
+      font-weight: 950;
+    }
+
     .round-timer {
       color: var(--gold);
       font-weight: 950;
@@ -1081,6 +1091,7 @@
         <div class="initial-prompt-body">
           <div class="initial-clue" id="initialClueText">ㄱ ㄴ</div>
           <div class="initial-prompt-caption">떠오르는 2글자 단어를 빠르게 입력하세요</div>
+          <div class="initial-hint-text" id="initialHintText">12초 후 힌트 공개</div>
         </div>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
@@ -1872,6 +1883,7 @@
     const initialPromptCard = document.getElementById("initialPromptCard");
     const initialPromptTitle = document.getElementById("initialPromptTitle");
     const initialClueText = document.getElementById("initialClueText");
+    const initialHintText = document.getElementById("initialHintText");
     const initialGuessBox = document.getElementById("initialGuessBox");
     const initialGuessInput = document.getElementById("initialGuessInput");
     const initialGuessButton = document.getElementById("initialGuessButton");
@@ -1941,6 +1953,8 @@
       checking: false,
       recorded: false,
       soloStarted: false,
+      initialHint: null,
+      initialHintTimer: null,
       nickname: "",
       guesses: [],
       hintUsed: false,
@@ -2019,8 +2033,40 @@
 
     function updateInitialPrompt() {
       const clue = getInitialClue();
+      const hint = state.initialHint || state.answer?.hint || null;
       initialPromptTitle.textContent = "초성 문제";
       initialClueText.textContent = clue || "? ?";
+      if (hint?.letter) {
+        const label = hint.index === 1 ? "뒷글자" : "앞글자";
+        initialHintText.textContent = `힌트: ${label} '${hint.letter}'`;
+      } else {
+        initialHintText.textContent = "12초 후 힌트 공개";
+      }
+    }
+
+    function clearInitialHintTimer() {
+      if (state.initialHintTimer) {
+        window.clearTimeout(state.initialHintTimer);
+        state.initialHintTimer = null;
+      }
+    }
+
+    function makeLocalInitialHint() {
+      const letters = [...String(state.answer?.word || "")];
+      if (!letters.length) return null;
+      const index = letters.length > 1 && Math.random() < 0.5 ? 1 : 0;
+      return { index, letter: letters[index] };
+    }
+
+    function scheduleLocalInitialHint() {
+      clearInitialHintTimer();
+      if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+      state.initialHintTimer = window.setTimeout(() => {
+        state.initialHintTimer = null;
+        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+        state.initialHint = makeLocalInitialHint();
+        updateInitialPrompt();
+      }, 12000);
     }
 
     function updateGuideText() {
@@ -2312,6 +2358,7 @@
       state.recorded = false;
       state.guesses = [];
       state.hintUsed = false;
+      state.initialHint = state.answer?.hint || null;
       state.hintedPositions.clear();
       state.keyRanks.clear();
       state.multiTap = { key: "", row: -1, col: -1, index: 0, at: 0 };
@@ -2323,11 +2370,13 @@
       updateGuideText();
       updateTryCount();
       updateRoundClock();
+      scheduleLocalInitialHint();
       resultPanel.hidden = true;
       showToast("새 문제 시작");
     }
 
     function clearBoardForWaiting() {
+      clearInitialHintTimer();
       if (!roomState.joined) state.soloStarted = false;
       state.row = 0;
       state.col = 0;
@@ -2336,6 +2385,7 @@
       state.recorded = false;
       state.guesses = [];
       state.hintUsed = false;
+      state.initialHint = null;
       state.hintedPositions.clear();
       state.keyRanks.clear();
       state.multiTap = { key: "", row: -1, col: -1, index: 0, at: 0 };
@@ -2969,6 +3019,7 @@
         if (message.type === "countdown") beginCountdown(message.answer, message.startsAt, message.state);
         if (message.type === "start") startSharedGame(message.answer, message.state);
         if (message.type === "initialQuestion") handleInitialQuestion(message);
+        if (message.type === "initialHint") handleInitialHint(message);
         if (message.type === "timeout") handleRoomTimeout(message.state);
         if (message.type === "roundLeft") handleRoundLeft(message.state);
         if (message.type === "chat") addChatMessage(message.message);
@@ -3199,6 +3250,16 @@
       const name = message.winnerName ? `${message.winnerName} +1점` : "다음 문제";
       const word = message.guessedWord ? ` (${message.guessedWord})` : "";
       showToast(`${name}${word}`);
+    }
+
+    function handleInitialHint(message) {
+      updateRoomView(message.state);
+      if (message.answer?.hint) {
+        state.answer = message.answer;
+        state.initialHint = message.answer.hint;
+        updateInitialPrompt();
+        showToast("힌트가 공개됐어요");
+      }
     }
 
     function startRoundTimer() {

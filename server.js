@@ -10,6 +10,7 @@ const roomCreateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const INITIAL_ROUND_MS = 90000;
+const INITIAL_HINT_MS = 12000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 0;
@@ -265,6 +266,7 @@ function closeRoom(room, reason) {
   }
   if (room.timer) clearTimeout(room.timer);
   if (room.countdownTimer) clearTimeout(room.countdownTimer);
+  if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
   rooms.delete(room.code);
 }
 
@@ -367,8 +369,11 @@ function finishRound(room) {
   room.endsAt = 0;
   if (room.timer) clearTimeout(room.timer);
   if (room.countdownTimer) clearTimeout(room.countdownTimer);
+  if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
   room.timer = null;
   room.countdownTimer = null;
+  room.initialHintTimer = null;
+  room.initialQuestionStartedAt = 0;
   for (const player of room.players.values()) {
     player.ready = player.id === room.hostId;
     player.leftRound = false;
@@ -458,16 +463,48 @@ function pickInitialAnswer(previousWord = "") {
   return answer;
 }
 
-function publicInitialQuestion(answer) {
+function makeInitialHint(answer, index = 0) {
+  const letters = [...String(answer?.word || "")];
+  if (!letters.length) return null;
+  const safeIndex = index === 1 && letters.length > 1 ? 1 : 0;
+  return { index: safeIndex, letter: letters[safeIndex] };
+}
+
+function resetInitialHint(room, startedAt = Date.now()) {
+  if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
+  room.initialQuestionStartedAt = startedAt;
+  room.initialHintIndex = Math.random() < 0.5 ? 0 : 1;
+  room.initialHintTimer = null;
+}
+
+function currentInitialHint(room) {
+  if (!room || !room.answer || !room.initialQuestionStartedAt) return null;
+  if (Date.now() - room.initialQuestionStartedAt < INITIAL_HINT_MS) return null;
+  return makeInitialHint(room.answer, room.initialHintIndex);
+}
+
+function scheduleInitialHint(room) {
+  if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
+  if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
+  const delay = Math.max(0, (room.initialQuestionStartedAt || Date.now()) + INITIAL_HINT_MS - Date.now());
+  room.initialHintTimer = setTimeout(() => {
+    room.initialHintTimer = null;
+    if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
+    broadcast(room, { type: "initialHint", answer: roomQuestion(room), state: publicState(room) });
+  }, delay);
+}
+
+function publicInitialQuestion(answer, room = null) {
   return {
     word: "",
     jamo: Array(answer?.jamo?.length || 5).fill(""),
-    initials: getInitialsFromWord(answer?.word)
+    initials: getInitialsFromWord(answer?.word),
+    hint: currentInitialHint(room)
   };
 }
 
 function roomQuestion(room) {
-  return cleanGameMode(room.gameMode) === "initial" ? publicInitialQuestion(room.answer) : room.answer;
+  return cleanGameMode(room.gameMode) === "initial" ? publicInitialQuestion(room.answer, room) : room.answer;
 }
 
 async function handleApi(req, res, pathname) {
@@ -521,6 +558,9 @@ async function handleApi(req, res, pathname) {
         endsAt: 0,
         timer: null,
         countdownTimer: null,
+        initialHintTimer: null,
+        initialQuestionStartedAt: 0,
+        initialHintIndex: 0,
         chat: []
       };
       rooms.set(code, room);
@@ -635,6 +675,7 @@ async function handleApi(req, res, pathname) {
       room.wordLength = room.gameMode === "initial" ? 5 : (Number(body.wordLength) === 6 ? 6 : 5);
       room.answer = room.gameMode === "initial" ? pickInitialAnswer(room.previousWord) : pickAnswer(room.previousWord, room.wordLength);
       room.previousWord = room.answer.word;
+      if (room.gameMode === "initial") resetInitialHint(room, 0);
       room.started = false;
       room.countdownUntil = Date.now() + COUNTDOWN_MS;
       room.endsAt = room.countdownUntil + (room.gameMode === "initial" ? INITIAL_ROUND_MS : ROUND_MS);
@@ -651,6 +692,10 @@ async function handleApi(req, res, pathname) {
       room.countdownTimer = setTimeout(() => {
         room.started = true;
         room.countdownUntil = 0;
+        if (room.gameMode === "initial") {
+          resetInitialHint(room, Date.now());
+          scheduleInitialHint(room);
+        }
         broadcast(room, { type: "start", answer: roomQuestion(room), endsAt: room.endsAt, state: publicState(room) });
       }, COUNTDOWN_MS);
       room.timer = setTimeout(() => {
@@ -710,6 +755,8 @@ async function handleApi(req, res, pathname) {
       const guessedWord = previousAnswer.word;
       room.answer = pickInitialAnswer(room.previousWord);
       room.previousWord = room.answer.word;
+      resetInitialHint(room, Date.now());
+      scheduleInitialHint(room);
       broadcast(room, {
         type: "initialQuestion",
         answer: roomQuestion(room),
