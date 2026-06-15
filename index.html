@@ -1910,6 +1910,7 @@
     }
 
     function getInitialClue(answer = state.answer) {
+      if (Array.isArray(answer?.initials) && answer.initials.length) return answer.initials.join(" ");
       return getInitialsFromWord(answer?.word).join(" ");
     }
 
@@ -1917,8 +1918,8 @@
       if (state.gameMode === "initial") {
         const clue = getInitialClue();
         guideText.textContent = clue
-          ? `초성 힌트 ${clue} · 초성이 같은 사전 단어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`
-          : `초성이 같은 사전 단어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`;
+          ? `초성 ${clue} · 정답 2글자 단어를 빠르게 입력하세요`
+          : "정답 2글자 단어를 빠르게 입력하세요";
         return;
       }
       guideText.textContent = `사전 표제어를 자음과 모음 ${state.wordLength}칸으로 입력하세요`;
@@ -2290,13 +2291,7 @@
       }
 
       if (state.gameMode === "initial") {
-        const answerInitialKey = getInitialsFromWord(state.answer.word).join("");
-        const matchedInitialWord = matchedWords.find((word) => getInitialsFromWord(word).join("") === answerInitialKey);
-        if (!matchedInitialWord) {
-          rejectRow("초성이 달라요");
-          return;
-        }
-        await sendInitialGuess(matchedInitialWord);
+        await sendInitialGuess(matchedWords);
         return;
       }
 
@@ -2916,7 +2911,7 @@
       startRoomButton.hidden = !isHost;
       gameModeSelect.hidden = false;
       gameModeSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
-      wordLengthSelect.hidden = false;
+      wordLengthSelect.hidden = state.gameMode === "initial";
       wordLengthSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
       leaveRoomButton.hidden = false;
       readyButton.textContent = me?.ready ? "준비 완료" : "준비";
@@ -2961,20 +2956,22 @@
       }
     }
 
-    async function sendInitialGuess(word) {
+    async function sendInitialGuess(words) {
       if (!roomState.joined || !roomState.started) {
         openResult(true);
         return;
       }
+      const candidates = Array.isArray(words) ? words : [words];
+      const label = candidates[0] || "정답";
       try {
         const data = await apiPost("/api/initial-guess", {
           room: roomState.room,
           playerId: roomState.playerId,
-          word
+          words: candidates
         });
         if (data.awarded) {
           state.done = true;
-          showToast(`${word} 정답! +1점`);
+          showToast(`${label} 정답! +1점`);
         } else {
           rejectRow(data.message || "이미 다른 사람이 맞혔어요");
         }
@@ -3594,6 +3591,7 @@
         return;
       }
       setGameMode(nextMode);
+      wordLengthSelect.hidden = nextMode === "initial";
       reset();
     });
     keyboardLayoutSelect.addEventListener("change", () => {

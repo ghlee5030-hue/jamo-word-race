@@ -68,6 +68,7 @@ function loadAnswers() {
 }
 
 const answers = loadAnswers();
+const initialAnswers = answers[5].filter((answer) => [...answer.word].length === 2);
 
 function sendJson(res, status, body) {
   res.writeHead(status, { ...securityHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
@@ -447,6 +448,28 @@ function pickAnswer(previousWord = "", wordLength = 5) {
   return answer;
 }
 
+function pickInitialAnswer(previousWord = "") {
+  const list = initialAnswers.length ? initialAnswers : answers[5];
+  if (list.length <= 1) return list[0];
+  let answer = list[Math.floor(Math.random() * list.length)];
+  while (answer.word === previousWord) {
+    answer = list[Math.floor(Math.random() * list.length)];
+  }
+  return answer;
+}
+
+function publicInitialQuestion(answer) {
+  return {
+    word: "",
+    jamo: Array(answer?.jamo?.length || 5).fill(""),
+    initials: getInitialsFromWord(answer?.word)
+  };
+}
+
+function roomQuestion(room) {
+  return cleanGameMode(room.gameMode) === "initial" ? publicInitialQuestion(room.answer) : room.answer;
+}
+
 async function handleApi(req, res, pathname) {
   try {
     if (!isOriginAllowed(req)) {
@@ -609,8 +632,8 @@ async function handleApi(req, res, pathname) {
       const everyoneReady = [...room.players.values()].every((player) => player.ready || player.id === room.hostId);
       if (!everyoneReady) throw new Error("아직 준비하지 않은 사람이 있어요");
       room.gameMode = cleanGameMode(body.gameMode);
-      room.wordLength = Number(body.wordLength) === 6 ? 6 : 5;
-      room.answer = pickAnswer(room.previousWord, room.wordLength);
+      room.wordLength = room.gameMode === "initial" ? 5 : (Number(body.wordLength) === 6 ? 6 : 5);
+      room.answer = room.gameMode === "initial" ? pickInitialAnswer(room.previousWord) : pickAnswer(room.previousWord, room.wordLength);
       room.previousWord = room.answer.word;
       room.started = false;
       room.countdownUntil = Date.now() + COUNTDOWN_MS;
@@ -624,11 +647,11 @@ async function handleApi(req, res, pathname) {
       }
       if (room.countdownTimer) clearTimeout(room.countdownTimer);
       if (room.timer) clearTimeout(room.timer);
-      broadcast(room, { type: "countdown", answer: room.answer, startsAt: room.countdownUntil, state: publicState(room) });
+      broadcast(room, { type: "countdown", answer: roomQuestion(room), startsAt: room.countdownUntil, state: publicState(room) });
       room.countdownTimer = setTimeout(() => {
         room.started = true;
         room.countdownUntil = 0;
-        broadcast(room, { type: "start", answer: room.answer, endsAt: room.endsAt, state: publicState(room) });
+        broadcast(room, { type: "start", answer: roomQuestion(room), endsAt: room.endsAt, state: publicState(room) });
       }, COUNTDOWN_MS);
       room.timer = setTimeout(() => {
         finishTimedOutPlayers(room);
@@ -671,27 +694,31 @@ async function handleApi(req, res, pathname) {
       if (cleanGameMode(room.gameMode) !== "initial") throw new Error("초성 모드가 아닙니다");
       if (!room.started) throw new Error("아직 시작하지 않았어요");
       if (player.leftRound || player.result) throw new Error("이미 이번 라운드에서 나갔어요");
-      const word = String(body.word || "").trim().slice(0, 20);
-      if (!word) throw new Error("단어를 입력하세요");
-      if (getInitialKey(word) !== getInitialKey(room.answer?.word)) {
-        sendJson(res, 200, { ok: true, awarded: false, message: "초성이 달라요", state: publicState(room) });
+      const candidates = Array.isArray(body.words) ? body.words : [body.word];
+      const words = candidates
+        .map((word) => String(word || "").trim().slice(0, 20))
+        .filter(Boolean);
+      if (!words.length) throw new Error("단어를 입력하세요");
+      if (!words.includes(room.answer?.word)) {
+        sendJson(res, 200, { ok: true, awarded: false, message: "정답이 아니에요", state: publicState(room) });
         return;
       }
       player.score = (player.score || 0) + 1;
       player.tries = player.score;
       player.lastActive = Date.now();
       const previousAnswer = room.answer;
-      room.answer = pickAnswer(room.previousWord, room.wordLength);
+      const guessedWord = previousAnswer.word;
+      room.answer = pickInitialAnswer(room.previousWord);
       room.previousWord = room.answer.word;
       broadcast(room, {
         type: "initialQuestion",
-        answer: room.answer,
+        answer: roomQuestion(room),
         winnerName: player.name,
-        guessedWord: word,
-        previousAnswer,
+        guessedWord,
+        previousAnswer: publicInitialQuestion(previousAnswer),
         state: publicState(room)
       });
-      sendJson(res, 200, { ok: true, awarded: true, score: player.score, answer: room.answer, state: publicState(room) });
+      sendJson(res, 200, { ok: true, awarded: true, score: player.score, answer: roomQuestion(room), state: publicState(room) });
       return;
     }
 
