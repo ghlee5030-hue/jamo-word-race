@@ -494,6 +494,70 @@
       font-weight: 950;
     }
 
+    .initial-hint-text[hidden] {
+      display: none;
+    }
+
+    .initial-scoreboard {
+      width: min(100%, 520px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .initial-scoreboard[hidden] {
+      display: none;
+    }
+
+    .initial-scoreboard-title {
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 950;
+      text-align: center;
+    }
+
+    .initial-score-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .initial-score-row {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.12);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .initial-score-row.me {
+      border-color: rgba(80, 172, 218, 0.75);
+      background: rgba(80, 172, 218, 0.14);
+    }
+
+    .initial-score-rank {
+      color: var(--gold);
+      font-weight: 950;
+    }
+
+    .initial-score-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .initial-score-points {
+      color: var(--muted);
+      font-weight: 950;
+    }
+
     .round-timer {
       color: var(--gold);
       font-weight: 950;
@@ -1091,8 +1155,12 @@
         <div class="initial-prompt-body">
           <div class="initial-clue" id="initialClueText">ㄱ ㄴ</div>
           <div class="initial-prompt-caption">떠오르는 2글자 단어를 빠르게 입력하세요</div>
-          <div class="initial-hint-text" id="initialHintText">12초 후 힌트 공개</div>
+          <div class="initial-hint-text" id="initialHintText" hidden></div>
         </div>
+      </div>
+      <div class="initial-scoreboard" id="initialScoreboard" hidden>
+        <div class="initial-scoreboard-title">현재 순위</div>
+        <div class="initial-score-list" id="initialScoreList"></div>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
       <div class="initial-guess-box" id="initialGuessBox" hidden>
@@ -1884,6 +1952,8 @@
     const initialPromptTitle = document.getElementById("initialPromptTitle");
     const initialClueText = document.getElementById("initialClueText");
     const initialHintText = document.getElementById("initialHintText");
+    const initialScoreboard = document.getElementById("initialScoreboard");
+    const initialScoreList = document.getElementById("initialScoreList");
     const initialGuessBox = document.getElementById("initialGuessBox");
     const initialGuessInput = document.getElementById("initialGuessInput");
     const initialGuessButton = document.getElementById("initialGuessButton");
@@ -2039,9 +2109,32 @@
       if (hint?.letter) {
         const label = hint.index === 1 ? "뒷글자" : "앞글자";
         initialHintText.textContent = `힌트: ${label} '${hint.letter}'`;
+        initialHintText.hidden = false;
       } else {
-        initialHintText.textContent = "12초 후 힌트 공개";
+        initialHintText.textContent = "";
+        initialHintText.hidden = true;
       }
+    }
+
+    function renderInitialScoreboard() {
+      const show = roomState.joined && roomState.started && state.gameMode === "initial" && roomState.players.length > 0;
+      initialScoreboard.hidden = !show;
+      if (!show) {
+        initialScoreList.innerHTML = "";
+        return;
+      }
+      const ranked = [...roomState.players]
+        .sort((a, b) => (b.score || 0) - (a.score || 0) || a.name.localeCompare(b.name, "ko"));
+      initialScoreList.innerHTML = ranked.map((player, index) => {
+        const meClass = player.id === roomState.playerId ? " me" : "";
+        return `
+          <div class="initial-score-row${meClass}">
+            <span class="initial-score-rank">${index + 1}위</span>
+            <span class="initial-score-name">${escapeHtml(player.name)}</span>
+            <span class="initial-score-points">${player.score || 0}점</span>
+          </div>
+        `;
+      }).join("");
     }
 
     function clearInitialHintTimer() {
@@ -2131,6 +2224,7 @@
       keyboardTray.hidden = isSoloWaiting || isInitial;
       initialPromptCard.hidden = !showInitialPrompt;
       initialGuessBox.hidden = !useSoloInitialInput;
+      renderInitialScoreboard();
       if (showInitialPrompt) updateInitialPrompt();
       if (isInitial) {
         state.wordLength = 2;
@@ -3130,6 +3224,7 @@
       chatInput.placeholder = useChatAsInitialGuess ? "정답 단어를 빠르게 입력하세요" : "시작 전 채팅";
       chatSendButton.textContent = useChatAsInitialGuess ? "입력" : "전송";
       gameLeaveButton.hidden = !(roomState.joined && roomState.started && !isSittingOut);
+      renderInitialScoreboard();
       if (roomState.started && !isSittingOut) startRoundTimer();
     }
 
