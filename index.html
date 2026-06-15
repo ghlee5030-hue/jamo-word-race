@@ -511,6 +511,10 @@
       aspect-ratio: var(--word-length) / 5.15;
     }
 
+    .board[hidden] {
+      display: none;
+    }
+
     body.playing .board {
       width: min(100%, 620px);
       max-height: calc(100vh - 235px);
@@ -607,6 +611,10 @@
       max-width: 100%;
       overflow-x: clip;
       will-change: transform;
+    }
+
+    .keyboard-tray[hidden] {
+      display: none;
     }
 
     .keyboard-handle {
