@@ -996,6 +996,7 @@
       <div class="room-panel" id="roomPanel">
         <div class="room-row">
           <span class="chip" id="roomStatus">혼자 하기</span>
+          <button class="mini-button" id="soloStartButton" type="button">혼자 시작</button>
           <button class="mini-button" id="createRoomButton">방 만들기</button>
           <input class="room-input" id="roomCodeInput" maxlength="6" placeholder="방 코드">
           <button class="mini-button" id="joinRoomButton">입장</button>
@@ -1852,6 +1853,7 @@
     const roomCodeInput = document.getElementById("roomCodeInput");
     const gameModeSelect = document.getElementById("gameModeSelect");
     const wordLengthSelect = document.getElementById("wordLengthSelect");
+    const soloStartButton = document.getElementById("soloStartButton");
     const createRoomButton = document.getElementById("createRoomButton");
     const joinRoomButton = document.getElementById("joinRoomButton");
     const readyButton = document.getElementById("readyButton");
@@ -1881,6 +1883,7 @@
       done: false,
       checking: false,
       recorded: false,
+      soloStarted: false,
       nickname: "",
       guesses: [],
       hintUsed: false,
@@ -1958,6 +1961,10 @@
     }
 
     function updateGuideText() {
+      if (!roomState.joined && !state.soloStarted) {
+        guideText.textContent = "게임 방식을 고른 뒤 혼자 시작을 누르세요";
+        return;
+      }
       if (state.gameMode === "initial") {
         const clue = getInitialClue();
         guideText.textContent = clue
@@ -2010,9 +2017,10 @@
 
     function updateGameInputMode() {
       const isInitial = state.gameMode === "initial";
-      const useSoloInitialInput = isInitial && !roomState.joined;
-      board.hidden = isInitial;
-      keyboardTray.hidden = isInitial;
+      const isSoloWaiting = !roomState.joined && !state.soloStarted;
+      const useSoloInitialInput = isInitial && !roomState.joined && state.soloStarted;
+      board.hidden = isSoloWaiting || isInitial;
+      keyboardTray.hidden = isSoloWaiting || isInitial;
       initialGuessBox.hidden = !useSoloInitialInput;
       if (isInitial) {
         state.wordLength = 2;
@@ -2256,6 +2264,7 @@
     }
 
     function clearBoardForWaiting() {
+      if (!roomState.joined) state.soloStarted = false;
       state.row = 0;
       state.col = 0;
       state.done = true;
@@ -2274,6 +2283,13 @@
       updateGuideText();
       updateTryCount();
       updateRoundClock();
+    }
+
+    function startSoloGame() {
+      if (roomState.joined) return;
+      state.soloStarted = true;
+      state.done = false;
+      reset();
     }
 
     function tilesInRow(rowIndex = state.row) {
@@ -2979,6 +2995,7 @@
         return `<div class="player-line"><strong>${escapeHtml(player.name)}</strong><span>${marks}</span>${kickButton}</div>`;
       }).join("");
       createRoomButton.hidden = true;
+      soloStartButton.hidden = true;
       joinRoomButton.hidden = true;
       roomCodeInput.hidden = true;
       readyButton.hidden = false;
@@ -3298,6 +3315,7 @@
       chatBox.hidden = true;
       chatInput.placeholder = "시작 전 채팅";
       chatSendButton.textContent = "전송";
+      soloStartButton.hidden = false;
       createRoomButton.hidden = false;
       joinRoomButton.hidden = false;
       roomCodeInput.hidden = false;
@@ -3628,6 +3646,8 @@
       if (roomState.joined) {
         resultPanel.hidden = true;
         readyForNextRound();
+      } else if (!state.soloStarted) {
+        startSoloGame();
       } else {
         reset();
       }
@@ -3644,6 +3664,7 @@
       statsPanel.hidden = true;
     });
     document.getElementById("saveNameButton").addEventListener("click", () => setNickname(nameInput.value));
+    soloStartButton.addEventListener("click", startSoloGame);
     createRoomButton.addEventListener("click", createRoom);
     joinRoomButton.addEventListener("click", () => joinRoom());
     readyButton.addEventListener("click", toggleReady);
@@ -3669,7 +3690,8 @@
       }
       setWordLength(nextLength);
       if (!roomState.joined) {
-        reset();
+        state.soloStarted = false;
+        clearBoardForWaiting();
       } else {
         clearBoardForWaiting();
       }
@@ -3694,7 +3716,8 @@
       }
       setGameMode(nextMode);
       wordLengthSelect.hidden = nextMode === "initial";
-      reset();
+      state.soloStarted = false;
+      clearBoardForWaiting();
     });
     keyboardLayoutSelect.addEventListener("change", () => {
       state.keyboardLayout = keyboardLayoutSelect.value === "cheonjiin" ? "cheonjiin" : "qwerty";
@@ -3736,7 +3759,7 @@
     enableKeyboardDrag();
     enableResultDialogDrag();
     updateStatsView();
-    reset();
+    clearBoardForWaiting();
     refreshRoomList();
     const inviteRoom = new URLSearchParams(window.location.search).get("room");
     if (inviteRoom) {
