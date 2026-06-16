@@ -10,7 +10,8 @@ const roomCreateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const INITIAL_ROUND_MS = 90000;
-const INITIAL_HINT_MS = 5000;
+const INITIAL_DESCRIPTION_HINT_MS = 5000;
+const INITIAL_LETTER_HINT_MS = 12000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 0;
@@ -267,6 +268,7 @@ function closeRoom(room, reason) {
   if (room.timer) clearTimeout(room.timer);
   if (room.countdownTimer) clearTimeout(room.countdownTimer);
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
+  if (room.initialLetterHintTimer) clearTimeout(room.initialLetterHintTimer);
   rooms.delete(room.code);
 }
 
@@ -370,9 +372,11 @@ function finishRound(room) {
   if (room.timer) clearTimeout(room.timer);
   if (room.countdownTimer) clearTimeout(room.countdownTimer);
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
+  if (room.initialLetterHintTimer) clearTimeout(room.initialLetterHintTimer);
   room.timer = null;
   room.countdownTimer = null;
   room.initialHintTimer = null;
+  room.initialLetterHintTimer = null;
   room.initialQuestionStartedAt = 0;
   for (const player of room.players.values()) {
     player.ready = player.id === room.hostId;
@@ -502,31 +506,51 @@ function makeInitialDescription(word) {
   return "정답과 관련된 설명 힌트예요.";
 }
 
-function makeInitialHint(answer) {
-  return { description: makeInitialDescription(answer?.word) };
+function makeInitialLetterHint(answer, index = 0) {
+  const letters = [...String(answer?.word || "")];
+  if (!letters.length) return null;
+  const safeIndex = index === 1 && letters.length > 1 ? 1 : 0;
+  return { index: safeIndex, letter: letters[safeIndex] };
+}
+
+function makeInitialHint(answer, elapsed = 0, letterIndex = 0) {
+  if (elapsed < INITIAL_DESCRIPTION_HINT_MS) return null;
+  const hint = { description: makeInitialDescription(answer?.word) };
+  if (elapsed >= INITIAL_LETTER_HINT_MS) hint.letterHint = makeInitialLetterHint(answer, letterIndex);
+  return hint;
 }
 
 function resetInitialHint(room, startedAt = Date.now()) {
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
+  if (room.initialLetterHintTimer) clearTimeout(room.initialLetterHintTimer);
   room.initialQuestionStartedAt = startedAt;
+  room.initialHintIndex = Math.random() < 0.5 ? 0 : 1;
   room.initialHintTimer = null;
+  room.initialLetterHintTimer = null;
 }
 
 function currentInitialHint(room) {
   if (!room || !room.answer || !room.initialQuestionStartedAt) return null;
-  if (Date.now() - room.initialQuestionStartedAt < INITIAL_HINT_MS) return null;
-  return makeInitialHint(room.answer);
+  return makeInitialHint(room.answer, Date.now() - room.initialQuestionStartedAt, room.initialHintIndex);
 }
 
 function scheduleInitialHint(room) {
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
+  if (room.initialLetterHintTimer) clearTimeout(room.initialLetterHintTimer);
   if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
-  const delay = Math.max(0, (room.initialQuestionStartedAt || Date.now()) + INITIAL_HINT_MS - Date.now());
+  const startedAt = room.initialQuestionStartedAt || Date.now();
+  const descriptionDelay = Math.max(0, startedAt + INITIAL_DESCRIPTION_HINT_MS - Date.now());
+  const letterDelay = Math.max(0, startedAt + INITIAL_LETTER_HINT_MS - Date.now());
   room.initialHintTimer = setTimeout(() => {
     room.initialHintTimer = null;
     if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
     broadcast(room, { type: "initialHint", answer: roomQuestion(room), state: publicState(room) });
-  }, delay);
+  }, descriptionDelay);
+  room.initialLetterHintTimer = setTimeout(() => {
+    room.initialLetterHintTimer = null;
+    if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
+    broadcast(room, { type: "initialHint", answer: roomQuestion(room), state: publicState(room) });
+  }, letterDelay);
 }
 
 function publicInitialQuestion(answer, room = null) {
@@ -594,7 +618,9 @@ async function handleApi(req, res, pathname) {
         timer: null,
         countdownTimer: null,
         initialHintTimer: null,
+        initialLetterHintTimer: null,
         initialQuestionStartedAt: 0,
+        initialHintIndex: 0,
         chat: []
       };
       rooms.set(code, room);

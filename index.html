@@ -483,7 +483,7 @@
 
     .initial-prompt-body {
       display: grid;
-      grid-template-rows: auto auto 42px;
+      grid-template-rows: auto auto 74px;
       place-items: center;
       min-height: 190px;
       padding: 28px 18px 32px;
@@ -506,9 +506,9 @@
 
     .initial-hint-text {
       margin-top: 12px;
-      border-radius: 999px;
+      border-radius: 16px;
       padding: 8px 14px;
-      min-height: 38px;
+      min-height: 70px;
       max-width: 100%;
       background: #e0f2fe;
       color: #075985;
@@ -516,7 +516,7 @@
       font-weight: 950;
       line-height: 1.35;
       text-align: center;
-      white-space: normal;
+      white-space: pre-line;
     }
 
     .initial-hint-text[hidden] {
@@ -2065,6 +2065,8 @@
       soloStarted: false,
       initialHint: null,
       initialHintTimer: null,
+      initialLetterHintTimer: null,
+      initialHintIndex: 0,
       nickname: "",
       guesses: [],
       hintUsed: false,
@@ -2146,8 +2148,14 @@
       const hint = state.initialHint || state.answer?.hint || null;
       initialPromptTitle.textContent = "초성 문제";
       initialClueText.textContent = clue || "? ?";
-      if (hint?.description) {
-        initialHintText.textContent = `힌트: ${hint.description}`;
+      const hintLines = [];
+      if (hint?.description) hintLines.push(`설명 힌트: ${hint.description}`);
+      if (hint?.letterHint?.letter) {
+        const label = hint.letterHint.index === 1 ? "뒷글자" : "앞글자";
+        hintLines.push(`${label} 힌트: '${hint.letterHint.letter}'`);
+      }
+      if (hintLines.length) {
+        initialHintText.textContent = hintLines.join("\n");
         initialHintText.hidden = false;
       } else {
         initialHintText.textContent = "힌트 자리";
@@ -2181,9 +2189,20 @@
         window.clearTimeout(state.initialHintTimer);
         state.initialHintTimer = null;
       }
+      if (state.initialLetterHintTimer) {
+        window.clearTimeout(state.initialLetterHintTimer);
+        state.initialLetterHintTimer = null;
+      }
     }
 
-    function makeLocalInitialHint() {
+    function makeLocalLetterHint() {
+      const letters = [...String(state.answer?.word || "")];
+      if (!letters.length) return null;
+      const index = state.initialHintIndex === 1 && letters.length > 1 ? 1 : 0;
+      return { index, letter: letters[index] };
+    }
+
+    function makeLocalInitialHint(includeLetter = false) {
       const word = String(state.answer?.word || "");
       const hints = {
         수박: "초록 껍질과 빨간 속을 가진 여름 과일이에요.",
@@ -2200,18 +2219,27 @@
         구름: "하늘에 떠 있는 하얗거나 회색의 물방울 덩어리예요.",
         마음: "기분이나 생각이 생기는 안쪽 느낌이에요."
       };
-      return { description: hints[word] || "일상에서 자주 쓰이는 두 글자 단어예요." };
+      const hint = { description: hints[word] || "일상에서 자주 쓰이는 두 글자 단어예요." };
+      if (includeLetter) hint.letterHint = makeLocalLetterHint();
+      return hint;
     }
 
     function scheduleLocalInitialHint() {
       clearInitialHintTimer();
       if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+      state.initialHintIndex = Math.random() < 0.5 ? 0 : 1;
       state.initialHintTimer = window.setTimeout(() => {
         state.initialHintTimer = null;
         if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
         state.initialHint = makeLocalInitialHint();
         updateInitialPrompt();
       }, 5000);
+      state.initialLetterHintTimer = window.setTimeout(() => {
+        state.initialLetterHintTimer = null;
+        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+        state.initialHint = makeLocalInitialHint(true);
+        updateInitialPrompt();
+      }, 12000);
     }
 
     function updateGuideText() {
