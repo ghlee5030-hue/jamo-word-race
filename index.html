@@ -483,6 +483,7 @@
 
     .initial-prompt-body {
       display: grid;
+      grid-template-rows: auto auto 42px;
       place-items: center;
       min-height: 190px;
       padding: 28px 18px 32px;
@@ -507,14 +508,20 @@
       margin-top: 12px;
       border-radius: 999px;
       padding: 8px 14px;
+      min-height: 38px;
+      max-width: 100%;
       background: #e0f2fe;
       color: #075985;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 950;
+      line-height: 1.35;
+      text-align: center;
+      white-space: normal;
     }
 
     .initial-hint-text[hidden] {
-      display: none;
+      display: block;
+      visibility: hidden;
     }
 
     .initial-scoreboard {
@@ -2139,12 +2146,11 @@
       const hint = state.initialHint || state.answer?.hint || null;
       initialPromptTitle.textContent = "초성 문제";
       initialClueText.textContent = clue || "? ?";
-      if (hint?.letter) {
-        const label = hint.index === 1 ? "뒷글자" : "앞글자";
-        initialHintText.textContent = `힌트: ${label} '${hint.letter}'`;
+      if (hint?.description) {
+        initialHintText.textContent = `힌트: ${hint.description}`;
         initialHintText.hidden = false;
       } else {
-        initialHintText.textContent = "";
+        initialHintText.textContent = "힌트 자리";
         initialHintText.hidden = true;
       }
     }
@@ -2178,10 +2184,23 @@
     }
 
     function makeLocalInitialHint() {
-      const letters = [...String(state.answer?.word || "")];
-      if (!letters.length) return null;
-      const index = letters.length > 1 && Math.random() < 0.5 ? 1 : 0;
-      return { index, letter: letters[index] };
+      const word = String(state.answer?.word || "");
+      const hints = {
+        수박: "초록 껍질과 빨간 속을 가진 여름 과일이에요.",
+        운동: "건강해지려면 몸을 움직이며 꾸준히 해야 하는 일이에요.",
+        학교: "학생들이 공부하러 가는 곳이에요.",
+        바다: "넓고 짠물이 가득한 곳이에요.",
+        하늘: "구름과 해와 달을 볼 수 있는 위쪽 공간이에요.",
+        의자: "앉을 때 쓰는 가구예요.",
+        사과: "빨갛거나 초록빛이 나는 둥근 과일이에요.",
+        버스: "여러 사람이 함께 타는 대중교통이에요.",
+        친구: "가깝게 지내며 함께 노는 사람이에요.",
+        과자: "바삭하거나 달콤하게 먹는 간식이에요.",
+        김치: "배추나 무를 양념해 발효시킨 음식이에요.",
+        구름: "하늘에 떠 있는 하얗거나 회색의 물방울 덩어리예요.",
+        마음: "기분이나 생각이 생기는 안쪽 느낌이에요."
+      };
+      return { description: hints[word] || "일상에서 자주 쓰이는 두 글자 단어예요." };
     }
 
     function scheduleLocalInitialHint() {
@@ -2192,7 +2211,7 @@
         if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
         state.initialHint = makeLocalInitialHint();
         updateInitialPrompt();
-      }, 12000);
+      }, 5000);
     }
 
     function updateGuideText() {
@@ -3372,13 +3391,16 @@
 
     function handleInitialQuestion(message) {
       updateRoomView(message.state);
+      if (message.winnerName && message.guessedWord) {
+        const notice = `${message.winnerName}님의 정답입니다. 정답은 ${message.guessedWord}입니다.`;
+        addChatMessage({ id: `answer-${Date.now()}`, name: "알림", text: notice, at: Date.now() });
+        showToast(notice);
+      }
       reset(message.answer);
       setPlayingMode(true);
       resultPanel.hidden = true;
       countdownOverlay.hidden = true;
-      const name = message.winnerName ? `${message.winnerName} +1점` : "다음 문제";
-      const word = message.guessedWord ? ` (${message.guessedWord})` : "";
-      showToast(`${name}${word}`);
+      if (!message.winnerName) showToast("다음 문제");
     }
 
     function handleInitialHint(message) {

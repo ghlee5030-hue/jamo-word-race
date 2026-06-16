@@ -10,7 +10,7 @@ const roomCreateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const INITIAL_ROUND_MS = 90000;
-const INITIAL_HINT_MS = 12000;
+const INITIAL_HINT_MS = 5000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 0;
@@ -463,24 +463,59 @@ function pickInitialAnswer(previousWord = "") {
   return answer;
 }
 
-function makeInitialHint(answer, index = 0) {
-  const letters = [...String(answer?.word || "")];
-  if (!letters.length) return null;
-  const safeIndex = index === 1 && letters.length > 1 ? 1 : 0;
-  return { index: safeIndex, letter: letters[safeIndex] };
+function makeInitialDescription(word) {
+  const text = String(word || "");
+  const hints = {
+    수박: "초록 껍질과 빨간 속을 가진 여름 과일이에요.",
+    운동: "건강해지려면 몸을 움직이며 꾸준히 해야 하는 일이에요.",
+    학교: "학생들이 공부하러 가는 곳이에요.",
+    바다: "넓고 짠물이 가득한 곳이에요.",
+    하늘: "구름과 해와 달을 볼 수 있는 위쪽 공간이에요.",
+    의자: "앉을 때 쓰는 가구예요.",
+    책상: "책을 펴거나 글을 쓸 때 쓰는 가구예요.",
+    사과: "빨갛거나 초록빛이 나는 둥근 과일이에요.",
+    버스: "여러 사람이 함께 타는 대중교통이에요.",
+    기차: "철길 위를 달리는 긴 교통수단이에요.",
+    사진: "카메라로 남긴 장면이에요.",
+    음악: "소리와 리듬으로 듣는 예술이에요.",
+    영화: "화면으로 이야기를 보여주는 작품이에요.",
+    가족: "부모, 형제처럼 가까운 집안 사람들이에요.",
+    친구: "가깝게 지내며 함께 노는 사람이에요.",
+    시간: "시계로 재거나 약속을 정할 때 쓰는 개념이에요.",
+    시장: "물건을 사고파는 곳이에요.",
+    병원: "아픈 사람이 진료받으러 가는 곳이에요.",
+    공원: "산책하거나 쉬러 가는 넓은 쉼터예요.",
+    전화: "멀리 있는 사람과 말할 때 쓰는 수단이에요.",
+    모자: "머리에 쓰는 물건이에요.",
+    신발: "발에 신고 걷는 물건이에요.",
+    연필: "글씨를 쓰거나 그림을 그릴 때 쓰는 도구예요.",
+    냉장: "차갑게 보관하는 것과 관련된 말이에요.",
+    커피: "볶은 원두로 만드는 향이 강한 음료예요.",
+    과자: "바삭하거나 달콤하게 먹는 간식이에요.",
+    김치: "배추나 무를 양념해 발효시킨 음식이에요.",
+    구름: "하늘에 떠 있는 하얗거나 회색의 물방울 덩어리예요.",
+    마음: "기분이나 생각이 생기는 안쪽 느낌이에요.",
+    사람: "생각하고 말하며 살아가는 존재예요."
+  };
+  if (hints[text]) return hints[text];
+  if (/[가-힣]{2}/.test(text)) return "일상에서 자주 쓰이는 두 글자 단어예요.";
+  return "정답과 관련된 설명 힌트예요.";
+}
+
+function makeInitialHint(answer) {
+  return { description: makeInitialDescription(answer?.word) };
 }
 
 function resetInitialHint(room, startedAt = Date.now()) {
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
   room.initialQuestionStartedAt = startedAt;
-  room.initialHintIndex = Math.random() < 0.5 ? 0 : 1;
   room.initialHintTimer = null;
 }
 
 function currentInitialHint(room) {
   if (!room || !room.answer || !room.initialQuestionStartedAt) return null;
   if (Date.now() - room.initialQuestionStartedAt < INITIAL_HINT_MS) return null;
-  return makeInitialHint(room.answer, room.initialHintIndex);
+  return makeInitialHint(room.answer);
 }
 
 function scheduleInitialHint(room) {
@@ -560,7 +595,6 @@ async function handleApi(req, res, pathname) {
         countdownTimer: null,
         initialHintTimer: null,
         initialQuestionStartedAt: 0,
-        initialHintIndex: 0,
         chat: []
       };
       rooms.set(code, room);
@@ -762,7 +796,7 @@ async function handleApi(req, res, pathname) {
         answer: roomQuestion(room),
         winnerName: player.name,
         guessedWord,
-        previousAnswer: publicInitialQuestion(previousAnswer),
+        previousAnswer: { word: guessedWord },
         state: publicState(room)
       });
       sendJson(res, 200, { ok: true, awarded: true, score: player.score, answer: roomQuestion(room), state: publicState(room) });
