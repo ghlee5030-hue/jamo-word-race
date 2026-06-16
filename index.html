@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="naver-site-verification" content="145b8af9ffb02c5c9fe9672e11aef1de08d17ac1">
-  <title>단어배틀</title>
+  <title>단어&초성게임</title>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-4QJG53RPVR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -80,10 +80,29 @@
 
     body.playing header,
     body.playing .profile,
-    body.playing .room-panel,
+    body.playing:not(.initial-playing) .room-panel,
     body.playing .stats,
     body.playing .ad-slot {
       display: none;
+    }
+
+    body.playing.initial-playing .room-panel {
+      display: grid;
+      width: min(100%, 520px);
+      border: 0;
+      padding: 0;
+      background: transparent;
+    }
+
+    body.playing.initial-playing .room-row,
+    body.playing.initial-playing .room-list,
+    body.playing.initial-playing .available-rooms {
+      display: none;
+    }
+
+    body.playing.initial-playing .chat-box {
+      border-top: 0;
+      padding-top: 0;
     }
 
     body.playing .stage {
@@ -612,6 +631,20 @@
       }
     }
 
+    @media (max-width: 760px) {
+      .ad-slot,
+      .adsbygoogle,
+      .kakao_ad_area {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -1103,7 +1136,7 @@
   <main class="app">
     <header>
       <button class="icon-button" id="helpButton" title="게임방법" aria-label="게임방법">게임방법</button>
-      <h1>단어배틀</h1>
+      <h1>단어&초성게임</h1>
       <button class="icon-button" id="newButton" title="새 문제" aria-label="새 문제">↻</button>
     </header>
 
@@ -2436,6 +2469,7 @@
 
     function setPlayingMode(enabled) {
       document.body.classList.toggle("playing", Boolean(enabled));
+      document.body.classList.toggle("initial-playing", Boolean(enabled && state.gameMode === "initial"));
       fitKeyboardToViewport();
     }
 
@@ -2747,7 +2781,7 @@
     async function copyResult() {
       const lines = state.guesses.map(({ result }) => result.map(resultEmoji).join(""));
       const stats = getCurrentStats();
-      const text = `단어배틀 ${state.nickname} ${state.guesses.length}/${MAX_GUESSES}\n${lines.join("\n")}\n승률 ${getWinRate(stats)} · 연승 ${stats.streak}\n${getShareUrl()}`;
+      const text = `단어&초성게임 ${state.nickname} ${state.guesses.length}/${MAX_GUESSES}\n${lines.join("\n")}\n승률 ${getWinRate(stats)} · 연승 ${stats.streak}\n${getShareUrl()}`;
       try {
         await navigator.clipboard.writeText(text);
         showToast("결과를 복사했어요");
@@ -2955,7 +2989,7 @@
     }
 
     async function copyShareLink() {
-      const text = `단어배틀 같이 해보자!\n${getShareUrl()}`;
+      const text = `단어&초성게임 같이 해보자!\n${getShareUrl()}`;
       try {
         await navigator.clipboard.writeText(text);
         showToast("공유 링크를 복사했어요");
@@ -3013,7 +3047,7 @@
           gameMode: gameModeSelect.value
         });
         enterRoom(data);
-        await navigator.clipboard.writeText(`단어배틀 방 초대\n${roomUrl(data.room)}`);
+        await navigator.clipboard.writeText(`단어&초성게임 방 초대\n${roomUrl(data.room)}`);
         showToast("방을 만들고 초대 링크를 복사했어요");
       } catch (error) {
         showToast(error.message);
