@@ -12,6 +12,7 @@ const ROUND_MS = 210000;
 const INITIAL_ROUND_MS = 90000;
 const INITIAL_DESCRIPTION_HINT_MS = 5000;
 const INITIAL_LETTER_HINT_MS = 12000;
+const INITIAL_QUESTION_MS = 20000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 90;
 const READY_IDLE_KICK_MS = 0;
@@ -269,6 +270,7 @@ function closeRoom(room, reason) {
   if (room.countdownTimer) clearTimeout(room.countdownTimer);
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
   if (room.initialLetterHintTimer) clearTimeout(room.initialLetterHintTimer);
+  if (room.initialQuestionTimer) clearTimeout(room.initialQuestionTimer);
   rooms.delete(room.code);
 }
 
@@ -373,10 +375,12 @@ function finishRound(room) {
   if (room.countdownTimer) clearTimeout(room.countdownTimer);
   if (room.initialHintTimer) clearTimeout(room.initialHintTimer);
   if (room.initialLetterHintTimer) clearTimeout(room.initialLetterHintTimer);
+  if (room.initialQuestionTimer) clearTimeout(room.initialQuestionTimer);
   room.timer = null;
   room.countdownTimer = null;
   room.initialHintTimer = null;
   room.initialLetterHintTimer = null;
+  room.initialQuestionTimer = null;
   room.initialQuestionStartedAt = 0;
   for (const player of room.players.values()) {
     player.ready = player.id === room.hostId;
@@ -576,6 +580,39 @@ function scheduleInitialHint(room) {
   }, letterDelay);
 }
 
+function advanceInitialQuestion(room, winnerName = "") {
+  if (!room.started || cleanGameMode(room.gameMode) !== "initial" || !room.answer) return null;
+  const previousAnswer = room.answer;
+  const guessedWord = previousAnswer.word;
+  room.answer = pickInitialAnswer(room.previousWord);
+  room.previousWord = room.answer.word;
+  resetInitialHint(room, Date.now());
+  scheduleInitialHint(room);
+  scheduleInitialQuestionTimeout(room);
+  broadcast(room, {
+    type: "initialQuestion",
+    answer: roomQuestion(room),
+    winnerName,
+    guessedWord,
+    noWinner: !winnerName,
+    previousAnswer: { word: guessedWord },
+    state: publicState(room)
+  });
+  return room.answer;
+}
+
+function scheduleInitialQuestionTimeout(room) {
+  if (room.initialQuestionTimer) clearTimeout(room.initialQuestionTimer);
+  if (!room.started || cleanGameMode(room.gameMode) !== "initial" || !room.answer) return;
+  const targetWord = room.answer.word;
+  room.initialQuestionTimer = setTimeout(() => {
+    room.initialQuestionTimer = null;
+    if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
+    if (!room.answer || room.answer.word !== targetWord) return;
+    advanceInitialQuestion(room);
+  }, INITIAL_QUESTION_MS);
+}
+
 function publicInitialQuestion(answer, room = null) {
   return {
     word: "",
@@ -642,6 +679,7 @@ async function handleApi(req, res, pathname) {
         countdownTimer: null,
         initialHintTimer: null,
         initialLetterHintTimer: null,
+        initialQuestionTimer: null,
         initialQuestionStartedAt: 0,
         initialHintIndex: 0,
         chat: []
@@ -778,6 +816,7 @@ async function handleApi(req, res, pathname) {
         if (room.gameMode === "initial") {
           resetInitialHint(room, Date.now());
           scheduleInitialHint(room);
+          scheduleInitialQuestionTimeout(room);
         }
         broadcast(room, { type: "start", answer: roomQuestion(room), endsAt: room.endsAt, state: publicState(room) });
       }, COUNTDOWN_MS);
@@ -834,20 +873,7 @@ async function handleApi(req, res, pathname) {
       player.score = (player.score || 0) + 1;
       player.tries = player.score;
       player.lastActive = Date.now();
-      const previousAnswer = room.answer;
-      const guessedWord = previousAnswer.word;
-      room.answer = pickInitialAnswer(room.previousWord);
-      room.previousWord = room.answer.word;
-      resetInitialHint(room, Date.now());
-      scheduleInitialHint(room);
-      broadcast(room, {
-        type: "initialQuestion",
-        answer: roomQuestion(room),
-        winnerName: player.name,
-        guessedWord,
-        previousAnswer: { word: guessedWord },
-        state: publicState(room)
-      });
+      advanceInitialQuestion(room, player.name);
       sendJson(res, 200, { ok: true, awarded: true, score: player.score, answer: roomQuestion(room), state: publicState(room) });
       return;
     }
