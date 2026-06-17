@@ -2062,6 +2062,9 @@
     const KEYBOARD_LAYOUT_KEY = "jamo-word-game-keyboard-layout";
     const MAX_GUESSES = 5;
     const DEFAULT_WORD_LENGTH = 5;
+    const INITIAL_DESCRIPTION_HINT_MS = 6000;
+    const INITIAL_LETTER_HINT_MS = 12000;
+    const INITIAL_QUESTION_MS = 20000;
 
     const state = {
       answer: ANSWERS[0],
@@ -2076,6 +2079,7 @@
       initialHint: null,
       initialHintTimer: null,
       initialLetterHintTimer: null,
+      initialQuestionTimer: null,
       initialHintIndex: 0,
       nickname: "",
       guesses: [],
@@ -2202,6 +2206,10 @@
       if (state.initialLetterHintTimer) {
         window.clearTimeout(state.initialLetterHintTimer);
         state.initialLetterHintTimer = null;
+      }
+      if (state.initialQuestionTimer) {
+        window.clearTimeout(state.initialQuestionTimer);
+        state.initialQuestionTimer = null;
       }
     }
 
@@ -2487,19 +2495,30 @@
     function scheduleLocalInitialHint() {
       clearInitialHintTimer();
       if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+      const answerWord = state.answer?.word || "";
       state.initialHintIndex = Math.random() < 0.5 ? 0 : 1;
       state.initialHintTimer = window.setTimeout(() => {
         state.initialHintTimer = null;
-        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done || state.answer?.word !== answerWord) return;
         state.initialHint = makeLocalInitialHint();
         updateInitialPrompt();
-      }, 5000);
+      }, INITIAL_DESCRIPTION_HINT_MS);
       state.initialLetterHintTimer = window.setTimeout(() => {
         state.initialLetterHintTimer = null;
-        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done) return;
+        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done || state.answer?.word !== answerWord) return;
         state.initialHint = makeLocalInitialHint(true);
         updateInitialPrompt();
-      }, 12000);
+      }, INITIAL_LETTER_HINT_MS);
+      state.initialQuestionTimer = window.setTimeout(() => {
+        state.initialQuestionTimer = null;
+        if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.done || state.answer?.word !== answerWord) return;
+        state.done = true;
+        showToast(`정답자가 없습니다. 정답은 ${answerWord}입니다.`);
+        window.setTimeout(() => {
+          if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.answer?.word !== answerWord) return;
+          reset(null, { silent: true });
+        }, 1200);
+      }, INITIAL_QUESTION_MS);
     }
 
     function updateGuideText() {

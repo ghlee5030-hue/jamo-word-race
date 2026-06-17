@@ -10,7 +10,7 @@ const roomCreateBuckets = new Map();
 const COUNTDOWN_MS = 3000;
 const ROUND_MS = 210000;
 const INITIAL_ROUND_MS = 90000;
-const INITIAL_DESCRIPTION_HINT_MS = 5000;
+const INITIAL_DESCRIPTION_HINT_MS = 6000;
 const INITIAL_LETTER_HINT_MS = 12000;
 const INITIAL_QUESTION_MS = 20000;
 const RATE_LIMIT_WINDOW_MS = 60000;
@@ -831,10 +831,14 @@ function scheduleInitialQuestionTimeout(room) {
   if (!room.started || cleanGameMode(room.gameMode) !== "initial" || !room.answer) return;
   const targetWord = room.answer.word;
   room.initialQuestionTimer = setTimeout(() => {
-    room.initialQuestionTimer = null;
-    if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
-    if (!room.answer || room.answer.word !== targetWord) return;
-    advanceInitialQuestion(room);
+    try {
+      room.initialQuestionTimer = null;
+      if (!room.started || cleanGameMode(room.gameMode) !== "initial") return;
+      if (!room.answer || room.answer.word !== targetWord) return;
+      advanceInitialQuestion(room);
+    } catch (error) {
+      console.error("initial question advance failed", error);
+    }
   }, INITIAL_QUESTION_MS);
 }
 
