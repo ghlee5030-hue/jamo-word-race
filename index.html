@@ -2062,6 +2062,7 @@
     const KEYBOARD_LAYOUT_KEY = "jamo-word-game-keyboard-layout";
     const MAX_GUESSES = 5;
     const DEFAULT_WORD_LENGTH = 5;
+    const SOLO_INITIAL_ROUND_MS = 90000;
     const INITIAL_DESCRIPTION_HINT_MS = 6000;
     const INITIAL_LETTER_HINT_MS = 12000;
     const INITIAL_QUESTION_MS = 20000;
@@ -2076,6 +2077,9 @@
       checking: false,
       recorded: false,
       soloStarted: false,
+      soloEndsAt: 0,
+      soloRoundTimer: null,
+      soloInitialScore: 0,
       initialHint: null,
       initialHintTimer: null,
       initialLetterHintTimer: null,
@@ -2521,6 +2525,10 @@
         showToast(`정답자가 없습니다. 정답은 ${answerWord}입니다.`);
         window.setTimeout(() => {
           if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted || state.answer?.word !== answerWord) return;
+          if (state.soloEndsAt && Date.now() >= state.soloEndsAt) {
+            finishSoloInitialRound();
+            return;
+          }
           reset(null, { silent: true });
         }, 1200);
       };
@@ -2832,6 +2840,10 @@
       updateGuideText();
       updateTryCount();
       updateRoundClock();
+      if (!roomState.joined && state.gameMode === "initial" && state.soloStarted && state.soloEndsAt && Date.now() >= state.soloEndsAt) {
+        finishSoloInitialRound();
+        return;
+      }
       scheduleLocalInitialHint();
       resultPanel.hidden = true;
       if (!options.silent) showToast("새 문제 시작");
@@ -2839,7 +2851,13 @@
 
     function clearBoardForWaiting() {
       clearInitialHintTimer();
+      if (state.soloRoundTimer) {
+        window.clearInterval(state.soloRoundTimer);
+        state.soloRoundTimer = null;
+      }
       if (!roomState.joined) state.soloStarted = false;
+      state.soloEndsAt = 0;
+      state.soloInitialScore = 0;
       state.row = 0;
       state.col = 0;
       state.done = true;
@@ -2864,8 +2882,12 @@
     function startSoloGame() {
       if (roomState.joined) return;
       state.soloStarted = true;
+      state.soloInitialScore = 0;
+      state.soloEndsAt = state.gameMode === "initial" ? Date.now() + SOLO_INITIAL_ROUND_MS : 0;
       state.done = false;
+      setPlayingMode(state.gameMode === "initial");
       reset();
+      if (state.gameMode === "initial") startSoloInitialRoundTimer();
     }
 
     function tilesInRow(rowIndex = state.row) {
@@ -3078,6 +3100,9 @@
       if (roomState.joined && roomState.started && roomState.endsAt) {
         roundClock.hidden = false;
         roundClock.textContent = `\uB0A8\uC740\uC2DC\uAC04 ${formatTimeLeft(roomState.endsAt)}`;
+      } else if (!roomState.joined && state.gameMode === "initial" && state.soloStarted && state.soloEndsAt) {
+        roundClock.hidden = false;
+        roundClock.textContent = `남은시간 ${formatTimeLeft(state.soloEndsAt)}`;
       } else {
         roundClock.hidden = true;
       }
@@ -3636,10 +3661,15 @@
         if (!guess) return;
         if (guess === state.answer.word) {
           state.done = true;
+          state.soloInitialScore += 1;
           clearInitialHintTimer();
-          showToast(`정답입니다. 정답은 ${guess}입니다.`);
+          showToast(`정답입니다. 정답은 ${guess}입니다. +1점`);
           window.setTimeout(() => {
             if (roomState.joined || state.gameMode !== "initial" || !state.soloStarted) return;
+            if (state.soloEndsAt && Date.now() >= state.soloEndsAt) {
+              finishSoloInitialRound();
+              return;
+            }
             reset(null, { silent: true });
           }, 900);
         } else {
@@ -3753,6 +3783,43 @@
         }
         updateRoomView({ hostId: roomState.hostId, started: roomState.started, endsAt: roomState.endsAt, players: roomState.players });
       }, 500);
+    }
+
+    function finishSoloInitialRound() {
+      if (!state.soloStarted || roomState.joined || state.gameMode !== "initial") return;
+      clearInitialHintTimer();
+      if (state.soloRoundTimer) {
+        window.clearInterval(state.soloRoundTimer);
+        state.soloRoundTimer = null;
+      }
+      state.done = true;
+      state.soloStarted = false;
+      state.soloEndsAt = 0;
+      setPlayingMode(false);
+      updateGameInputMode();
+      updateRoundClock();
+      resetResultDialogPosition();
+      resultTitle.textContent = "시간 종료!";
+      resultText.textContent = `1분 30초가 끝났어요.\n맞힌 문제: ${state.soloInitialScore}개`;
+      resultPanel.hidden = false;
+      showToast("시간 종료");
+    }
+
+    function startSoloInitialRoundTimer() {
+      if (state.soloRoundTimer) window.clearInterval(state.soloRoundTimer);
+      updateRoundClock();
+      state.soloRoundTimer = window.setInterval(() => {
+        if (!state.soloStarted || roomState.joined || state.gameMode !== "initial" || !state.soloEndsAt) {
+          window.clearInterval(state.soloRoundTimer);
+          state.soloRoundTimer = null;
+          return;
+        }
+        if (Date.now() >= state.soloEndsAt) {
+          finishSoloInitialRound();
+          return;
+        }
+        updateRoundClock();
+      }, 250);
     }
 
     function stopRoundTimer() {
@@ -3888,6 +3955,8 @@
       setPlayingMode(false);
       if (roomState.joined) {
         readyForNextRound();
+      } else if (!state.soloStarted) {
+        clearBoardForWaiting();
       } else {
         reset();
       }
