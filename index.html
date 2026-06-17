@@ -1204,7 +1204,7 @@
         <div class="initial-prompt-head" id="initialPromptTitle">초성 문제</div>
         <div class="initial-prompt-body">
           <div class="initial-clue" id="initialClueText">ㄱ ㄴ</div>
-          <div class="initial-prompt-caption">떠오르는 2글자 단어를 빠르게 입력하세요</div>
+          <div class="initial-prompt-caption">초성에 맞는 2글자 정답을 빠르게 입력하세요</div>
           <div class="initial-hint-text" id="initialHintText" hidden></div>
         </div>
       </div>
@@ -1994,7 +1994,17 @@
       "단어 공부 좀 더 하고 와야겠네요.",
       "오늘은 키보드가 아니라 자존심이 미끄러졌네요.",
       "힌트는 없었지만 변명은 많아질 것 같네요.",
-      "다음 판엔 뇌 속도 제한을 풀고 오세요."
+      "다음 판엔 손가락 워밍업부터 하고 오세요.",
+      "방금 건 연습판이었다고 우기기 딱 좋은 판이네요.",
+      "정답이 눈앞에서 손 흔들고 있었는데 못 보셨네요.",
+      "속도전인데 산책하듯 풀면 곤란합니다.",
+      "오늘 단어장이 당신을 기다리고 있어요.",
+      "손은 바빴는데 정답은 한가했네요.",
+      "이 정도면 키보드도 억울하겠어요.",
+      "다음 판엔 생각보다 손이 먼저 움직이면 안 됩니다.",
+      "정답 근처까지 갔다가 관광만 하고 오셨네요.",
+      "이번 판은 정답이 살짝 도망간 걸로 합시다.",
+      "패배도 경험이라지만 너무 성실하게 쌓고 있네요."
     ];
     const encyclopedia = buildEncyclopedia();
 
@@ -2692,7 +2702,7 @@
       if (!description && studyWorkWords.has(word)) description = "공부, 일, 지식과 관련된 단어예요.";
       if (!description && numberMeasureWords.has(word)) description = "숫자, 기준, 크기나 양을 나타낼 때 쓰는 단어예요.";
       if (!description && actionWords.has(word)) description = "사람이 하는 행동이나 활동과 관련된 단어예요.";
-      const hint = { description: description || "뜻이나 상황을 떠올려 맞히는 두 글자 단어예요." };
+      const hint = { description: description || "사전에 실린 2글자 낱말이에요. 초성과 공개된 글자를 함께 보세요." };
       if (includeLetter) hint.letterHint = makeLocalLetterHint();
       return hint;
     }

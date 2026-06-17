@@ -954,7 +954,7 @@ function makeInitialDescription(word) {
   if (studyWorkWords.has(text)) return "공부, 일, 지식과 관련된 단어예요.";
   if (numberMeasureWords.has(text)) return "숫자, 기준, 크기나 양을 나타낼 때 쓰는 단어예요.";
   if (actionWords.has(text)) return "사람이 하는 행동이나 활동과 관련된 단어예요.";
-  return "뜻이나 상황을 떠올려 맞히는 두 글자 단어예요.";
+  return "사전에 실린 2글자 낱말이에요. 초성과 공개된 글자를 함께 보세요.";
 }
 
 function makeInitialLetterHint(answer, index = 0) {
