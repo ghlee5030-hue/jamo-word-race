@@ -361,6 +361,7 @@ function finishTimedOutPlayers(room) {
 function finishInitialRound(room) {
   if (!room.started) return;
   const now = Date.now();
+  const finalAnswer = room.answer?.word || "";
   const players = [...room.players.values()].filter((player) => !player.leftRound);
   const highScore = Math.max(0, ...players.map((player) => player.score || 0));
   for (const player of room.players.values()) {
@@ -369,7 +370,7 @@ function finishInitialRound(room) {
     player.finishedAt = now;
   }
   finishRound(room);
-  broadcast(room, { type: "timeout", state: publicState(room) });
+  broadcast(room, { type: "timeout", finalAnswer, state: publicState(room) });
 }
 
 function finishRound(room) {

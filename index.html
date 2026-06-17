@@ -468,6 +468,7 @@
 
     .initial-prompt-card {
       width: min(100%, 520px);
+      min-height: 372px;
       border: 1px solid rgba(148, 163, 184, 0.45);
       border-radius: 10px;
       overflow: hidden;
@@ -495,7 +496,7 @@
       display: grid;
       grid-template-rows: auto auto 74px;
       place-items: center;
-      min-height: 190px;
+      min-height: 322px;
       padding: 28px 18px 32px;
       color: #0b1220;
     }
@@ -519,6 +520,7 @@
       border-radius: 16px;
       padding: 8px 14px;
       min-height: 70px;
+      width: min(100%, 440px);
       max-width: 100%;
       background: #e0f2fe;
       color: #075985;
@@ -3723,7 +3725,7 @@
         if (message.type === "start") startSharedGame(message.answer, message.state);
         if (message.type === "initialQuestion") handleInitialQuestion(message);
         if (message.type === "initialHint") handleInitialHint(message);
-        if (message.type === "timeout") handleRoomTimeout(message.state);
+        if (message.type === "timeout") handleRoomTimeout(message.state, message.finalAnswer || "");
         if (message.type === "roundLeft") handleRoundLeft(message.state);
         if (message.type === "chat") addChatMessage(message.message);
         if (message.type === "kicked") handleKicked(message.reason);
@@ -3920,6 +3922,7 @@
         return;
       }
       initialGuessInput.value = "";
+      initialGuessInput.blur();
       sendInitialGuess(word);
     }
 
@@ -4016,7 +4019,11 @@
       updateRoundClock();
       resetResultDialogPosition();
       resultTitle.textContent = "시간 종료!";
-      resultText.textContent = `1분 30초가 끝났어요.\n맞힌 문제: ${state.soloInitialScore}개`;
+      resultText.textContent = [
+        "1분 30초가 끝났어요.",
+        `맞힌 문제: ${state.soloInitialScore}개`,
+        state.answer?.word ? `마지막 문제 정답은 ${state.answer.word}입니다.` : ""
+      ].filter(Boolean).join("\n");
       resultPanel.hidden = false;
       showToast("시간 종료");
     }
@@ -4130,7 +4137,7 @@
       openResult(false);
     }
 
-    function handleRoomTimeout(data) {
+    function handleRoomTimeout(data, finalAnswer = "") {
       updateRoomView(data);
       if (!state.done) {
         state.done = true;
@@ -4138,7 +4145,20 @@
         gameLeaveButton.hidden = true;
         resetResultDialogPosition();
         resultTitle.textContent = "시간 종료!";
-        resultText.textContent = `제한시간이 끝났어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+        if (state.gameMode === "initial") {
+          const players = data?.players || roomState.players || [];
+          const ranking = [...players]
+            .sort((a, b) => (b.score || 0) - (a.score || 0) || a.name.localeCompare(b.name, "ko"))
+            .map((player) => `${player.name} ${player.score || 0}점`)
+            .join("\n");
+          resultText.textContent = [
+            "제한시간이 끝났어요.",
+            ranking || "점수가 없습니다.",
+            finalAnswer ? `마지막 문제 정답은 ${finalAnswer}입니다.` : ""
+          ].filter(Boolean).join("\n");
+        } else {
+          resultText.textContent = `제한시간이 끝났어요. 정답은 ${state.answer.word} (${state.answer.jamo.join(" ")})입니다.`;
+        }
         resultPanel.hidden = false;
       }
       roomState.started = false;
