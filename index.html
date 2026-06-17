@@ -1901,7 +1901,11 @@
     const ANSWERS_BY_LENGTH = { 5: ANSWERS_5, 6: ANSWERS_6 };
     const ANSWERS = ANSWERS_5;
     const INVALID_INITIAL_WORDS = new Set(["강아", "누룽", "자물"]);
-    const INITIAL_ANSWERS = ANSWERS_5.filter((answer) => [...answer.word].length === 2 && !INVALID_INITIAL_WORDS.has(answer.word));
+    const INITIAL_ANSWERS = ANSWERS_5.filter((answer) => (
+      [...answer.word].length === 2
+      && !INVALID_INITIAL_WORDS.has(answer.word)
+      && makeLocalInitialHint(false, answer.word)?.description
+    ));
 
     const EXTRA_ENCYCLOPEDIA_ENTRIES = [
       "가위", "가을", "가지", "감자", "강물", "거울", "고래", "고추", "과자", "구름",
@@ -2237,8 +2241,8 @@
       return { index, letter: letters[index] };
     }
 
-    function makeLocalInitialHint(includeLetter = false) {
-      const word = String(state.answer?.word || "");
+    function makeLocalInitialHint(includeLetter = false, wordOverride = null) {
+      const word = String(wordOverride || state.answer?.word || "");
       const directHints = {
         가게: "물건을 사고파는 작은 상점이에요.",
         가격: "물건을 살 때 내야 하는 돈의 양이에요.",
@@ -2702,7 +2706,8 @@
       if (!description && studyWorkWords.has(word)) description = "공부, 일, 지식과 관련된 단어예요.";
       if (!description && numberMeasureWords.has(word)) description = "숫자, 기준, 크기나 양을 나타낼 때 쓰는 단어예요.";
       if (!description && actionWords.has(word)) description = "사람이 하는 행동이나 활동과 관련된 단어예요.";
-      const hint = { description: description || "사전에 실린 2글자 낱말이에요. 초성과 공개된 글자를 함께 보세요." };
+      if (!description) return null;
+      const hint = { description };
       if (includeLetter) hint.letterHint = makeLocalLetterHint();
       return hint;
     }
@@ -2722,7 +2727,9 @@
       );
       const revealSoloHint = (includeLetter = false) => {
         if (!isCurrentSoloInitialQuestion()) return;
-        state.initialHint = makeLocalInitialHint(includeLetter);
+        const hint = makeLocalInitialHint(includeLetter);
+        if (!hint?.description) return;
+        state.initialHint = hint;
         initialPromptCard.hidden = false;
         initialHintText.hidden = false;
         updateInitialPrompt();
