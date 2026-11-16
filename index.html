@@ -26,18 +26,19 @@
     crossorigin="anonymous"></script>
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #0f1317;
-      --panel: #171d22;
-      --panel-2: #222a31;
-      --ink: #f5f8fb;
-      --muted: #a6b1bb;
-      --line: #34404a;
-      --green: #00a7e1;
-      --yellow: #ff8a3d;
-      --gray: #48515f;
-      --blue: #5aa7ff;
-      --red: #e46d70;
+      color-scheme: light;
+      --bg: #eff8f5;
+      --panel: #ffffff;
+      --panel-2: #e4f1ed;
+      --ink: #263d3b;
+      --muted: #58706b;
+      --line: #c2d8d1;
+      --green: #87d4f2;
+      --yellow: #ffc18c;
+      --gray: #c8d0d4;
+      --blue: #ffd3c9;
+      --red: #ba4558;
+      --gold: #896113;
     }
 
     :root {
@@ -57,10 +58,7 @@
       overflow-x: hidden;
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
-      background:
-        radial-gradient(circle at 18% 10%, rgba(90, 167, 255, 0.18), transparent 30%),
-        radial-gradient(circle at 80% 18%, rgba(72, 168, 104, 0.12), transparent 26%),
-        linear-gradient(180deg, #11171c 0%, #0c1014 100%);
+      background: var(--bg);
       color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       touch-action: manipulation;
@@ -134,7 +132,7 @@
     h1 {
       margin: 0;
       text-align: center;
-      font-size: clamp(24px, 6vw, 38px);
+      font-size: 28px;
       line-height: 1;
       letter-spacing: 0;
     }
@@ -502,7 +500,7 @@
     }
 
     .initial-clue {
-      font-size: clamp(76px, 20vw, 132px);
+      font-size: 100px;
       line-height: 1;
       font-weight: 1000;
       letter-spacing: 0;
@@ -614,7 +612,7 @@
       background: rgba(7, 10, 13, 0.72);
       backdrop-filter: blur(8px);
       color: var(--ink);
-      font-size: clamp(92px, 28vw, 180px);
+      font-size: 120px;
       font-weight: 950;
       pointer-events: none;
     }
@@ -694,7 +692,7 @@
     }
 
     body.playing .tile {
-      font-size: clamp(32px, 10.5vw, 58px);
+      font-size: 48px;
     }
 
     .row {
@@ -712,7 +710,7 @@
       border-radius: 8px;
       background: var(--panel);
       color: var(--ink);
-      font-size: clamp(26px, 8.5vw, 44px);
+      font-size: 36px;
       font-weight: 950;
       line-height: 1;
       transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
@@ -863,7 +861,7 @@
       overflow: hidden;
       background: var(--panel-2);
       color: var(--ink);
-      font-size: clamp(17px, 5vw, 22px);
+      font-size: 22px;
       font-weight: 900;
       cursor: pointer;
       touch-action: manipulation;
@@ -883,7 +881,7 @@
 
     body.playing .key {
       height: 50px;
-      font-size: clamp(20px, 6vw, 26px);
+      font-size: 24px;
     }
 
     body.playing .key.wide {
@@ -1149,13 +1147,105 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
+    /* Visual theme only: preserve board sizing and multiplayer state selectors. */
+    header { padding-bottom: 12px; border-bottom: 2px solid var(--line); }
+    .brand { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+    .brand-mark { width: 66px; height: 48px; flex: 0 0 auto; }
+    h1 { font-weight: 900; line-height: 1.2; color: #21685d; }
+    button, select { transition: background 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+    button:focus-visible, select:focus-visible, input:focus-visible, .keyboard-handle:focus-visible {
+      outline: 3px solid #217c70; outline-offset: 3px;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .icon-button, .mini-button, .secondary, .key {
+      background: #fff; border: 1px solid var(--line); box-shadow: 0 3px 0 #c2d8d1;
+    }
+    button:not(:disabled):active { transform: translateY(2px); box-shadow: none; }
+    #soloStartButton, #startRoomButton, #initialGuessButton, .primary {
+      background: #ffd3c9; color: #713f39; border: 1px solid #e6a89b; box-shadow: 0 3px 0 #e6a89b;
+    }
+    #createRoomButton, #readyButton { background: #d6eee4; color: #245f51; }
+    #gameLeaveButton, #leaveRoomButton { color: #a13c4d; }
+    .mini-button { min-height: 36px; }
+    .chip { background: #fff; }
+    #playerName { background: #fff0bc; border-color: #e7d595; color: #6c5519; }
+    #tryCount { background: #d6eee4; color: #245f51; }
+    .room-panel { border: 0; border-radius: 0; padding: 12px 0; background: transparent; }
+    .room-row { gap: 10px 8px; }
+    .room-input, .chat-input, .initial-guess-input, .name-form input { background: #fff; }
+    input::placeholder { color: #647c76; opacity: 1; }
+    .available-room, .player-line, .versus-row, .initial-score-row {
+      background: #fff; border-color: var(--line); color: var(--ink);
+    }
+    .chat-box { border-color: var(--line); }
+    .chat-message, .help-steps, .dialog p { color: var(--muted); }
+    .tile { box-shadow: 0 3px 0 #c2d8d1; border-width: 1px; }
+    .tile.filled { border: 2px solid #438f80; transform: none; background: #e1f3ec; }
+    .tile.correct, .tile.hint { background: var(--green); border-color: #4ca6c9; box-shadow: 0 3px 0 #4ca6c9; }
+    .tile.present { background: var(--yellow); border-color: #d99a61; box-shadow: 0 3px 0 #d99a61; }
+    .tile.absent { background: var(--gray); border-color: #a6b3b8; box-shadow: 0 3px 0 #a6b3b8; }
+    .key.correct { background: var(--green); border-color: #4ca6c9; }
+    .key.present { background: var(--yellow); border-color: #d99a61; }
+    .key.absent { background: var(--gray); color: #394b50; }
+    .key.wide { background: #d6eee4; }
+    .key.wide.correct { background: var(--green); }
+    .keyboard-tray { padding-bottom: 4px; }
+    .keyboard-handle { background: #e4f1ed; }
+    .initial-prompt-card { border: 2px solid #94baae; border-radius: 8px; background: #fff; box-shadow: 0 5px 0 #c2d8d1; }
+    .initial-prompt-head { background: #d6eee4; color: #245f51; border-bottom: 2px dashed #94baae; font-size: 22px; }
+    .initial-prompt-body { color: var(--ink); background: repeating-linear-gradient(#fff 0 31px, #edf4f1 31px 32px); }
+    .initial-prompt-caption { color: var(--muted); text-align: center; }
+    .initial-hint-text { background: #fff0bc; color: #6c5519; border-radius: 8px; }
+    .initial-scoreboard { background: transparent; border: 0; border-radius: 0; padding: 10px 0; }
+    .initial-score-row.me { background: #d6eee4; border-color: #70aa98; }
+    .round-timer, #roundClock { color: #875914; }
+    .dialog { background: #fff; border: 2px solid var(--line); box-shadow: 0 16px 60px #244d3f30; }
+    .help-steps li, .stat { background: #eff8f5; border-color: var(--line); }
+    .panel { background: #244d3f50; }
+    .countdown { background: #eff8f5eb; color: #21685d; }
+    .toast { background: #263d3b; color: #fff; }
+    @media (hover: hover) {
+      button:not(:disabled):hover { filter: brightness(.97); }
+    }
+    @media (max-width: 470px) {
+      .brand { gap: 6px; }
+      .brand-mark { width: 40px; height: 36px; }
+      h1 { font-size: 21px; }
+      .tile, body.playing .tile { font-size: 32px; }
+      .key, body.playing .key { font-size: 20px; }
+      .initial-clue { font-size: 76px; }
+      .initial-prompt-caption { font-size: 13px; }
+    }
+    @media (max-width: 359px) {
+      .brand-mark { display: none; }
+      h1 { font-size: 20px; }
+      .tile, body.playing .tile { font-size: 28px; }
+      .key, body.playing .key { font-size: 18px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
   </style>
 </head>
 <body>
   <main class="app">
     <header>
       <button class="icon-button" id="helpButton" title="게임방법" aria-label="게임방법">게임방법</button>
-      <h1>단어&초성게임</h1>
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 80 58" aria-hidden="true">
+          <g transform="rotate(-8 24 28)">
+            <rect x="4" y="7" width="37" height="42" rx="8" fill="#d6eee4" stroke="#438f80" stroke-width="2"/>
+            <path d="M15 18h14v13" fill="none" stroke="#21685d" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M18 39q5 5 10 0" fill="none" stroke="#21685d" stroke-width="2" stroke-linecap="round"/>
+          </g>
+          <g transform="rotate(9 56 30)">
+            <rect x="39" y="12" width="36" height="40" rx="8" fill="#ffd3c9" stroke="#c78070" stroke-width="2"/>
+            <path d="M52 21v15m0-8h10" fill="none" stroke="#9a5749" stroke-width="5" stroke-linejoin="round"/>
+            <path d="M52 43q5 5 10 0" fill="none" stroke="#9a5749" stroke-width="2" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <h1>단어&초성게임</h1>
+      </div>
       <button class="icon-button" id="newButton" title="새 문제" aria-label="새 문제">↻</button>
     </header>
 
