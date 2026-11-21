@@ -33,12 +33,27 @@
       --ink: #263d3b;
       --muted: #58706b;
       --line: #c2d8d1;
-      --green: #87d4f2;
-      --yellow: #ffc18c;
-      --gray: #c8d0d4;
+      --green: #00a7e1;
+      --yellow: #ff8a3d;
+      --gray: #48515f;
       --blue: #ffd3c9;
       --red: #ba4558;
       --gold: #896113;
+      --paper: #f9f8f0;
+      --white: #fffefa;
+      --ink-strong: #192d28;
+      --moss: #175847;
+      --mint: #bde5d2;
+      --mint-soft: #eaf5ee;
+      --coral: #f7b4a3;
+      --mustard: #f5d878;
+      --rule: #cad7cc;
+      --blue-edge: #4ca6c9;
+      --orange-edge: #d99a61;
+      --gray-edge: #a6b3b8;
+      --elevation: #b6c9bb;
+      --overlay: #172f2680;
+      --sheet-shadow: #172f2630;
     }
 
     :root {
@@ -55,7 +70,7 @@
       width: 100%;
       min-height: 100%;
       margin: 0;
-      overflow-x: hidden;
+      overflow-x: clip;
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
       background: var(--bg);
@@ -504,13 +519,6 @@
       line-height: 1;
       font-weight: 1000;
       letter-spacing: 0;
-    }
-
-    .initial-prompt-caption {
-      margin-top: 18px;
-      color: #475569;
-      font-size: 14px;
-      font-weight: 800;
     }
 
     .initial-hint-text {
@@ -1180,10 +1188,7 @@
     .chat-box { border-color: var(--line); }
     .chat-message, .help-steps, .dialog p { color: var(--muted); }
     .tile { box-shadow: 0 3px 0 #c2d8d1; border-width: 1px; }
-    .tile.filled { border: 2px solid #438f80; transform: none; background: #e1f3ec; }
-    .tile.correct, .tile.hint { background: var(--green); border-color: #4ca6c9; box-shadow: 0 3px 0 #4ca6c9; }
-    .tile.present { background: var(--yellow); border-color: #d99a61; box-shadow: 0 3px 0 #d99a61; }
-    .tile.absent { background: var(--gray); border-color: #a6b3b8; box-shadow: 0 3px 0 #a6b3b8; }
+    .tile.filled { border-width: 2px; transform: none; }
     .key.correct { background: var(--green); border-color: #4ca6c9; }
     .key.present { background: var(--yellow); border-color: #d99a61; }
     .key.absent { background: var(--gray); color: #394b50; }
@@ -1194,7 +1199,6 @@
     .initial-prompt-card { border: 2px solid #94baae; border-radius: 8px; background: #fff; box-shadow: 0 5px 0 #c2d8d1; }
     .initial-prompt-head { background: #d6eee4; color: #245f51; border-bottom: 2px dashed #94baae; font-size: 22px; }
     .initial-prompt-body { color: var(--ink); background: repeating-linear-gradient(#fff 0 31px, #edf4f1 31px 32px); }
-    .initial-prompt-caption { color: var(--muted); text-align: center; }
     .initial-hint-text { background: #fff0bc; color: #6c5519; border-radius: 8px; }
     .initial-scoreboard { background: transparent; border: 0; border-radius: 0; padding: 10px 0; }
     .initial-score-row.me { background: #d6eee4; border-color: #70aa98; }
@@ -1214,7 +1218,6 @@
       .tile, body.playing .tile { font-size: 32px; }
       .key, body.playing .key { font-size: 20px; }
       .initial-clue { font-size: 76px; }
-      .initial-prompt-caption { font-size: 13px; }
     }
     @media (max-width: 359px) {
       .brand-mark { display: none; }
@@ -1225,12 +1228,293 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
     }
+
+    /* Letterpress: paper surfaces, ink outlines, and tactile type blocks. */
+    :root {
+      --bg: var(--paper);
+      --panel: var(--white);
+      --panel-2: var(--mint-soft);
+      --ink: var(--ink-strong);
+      --line: var(--rule);
+    }
+    .app {
+      width: min(100%, 880px);
+      max-width: 100%;
+      grid-template-rows: auto auto auto;
+      align-content: start;
+      gap: 16px;
+      padding: 24px 24px 20px;
+    }
+    .app > header {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      padding: 0 0 16px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .brand { justify-content: flex-start; gap: 12px; }
+    .brand-mark { width: 72px; height: 56px; }
+    h1 { color: var(--ink); font-size: 34px; overflow-wrap: break-word; }
+    .stage { gap: 16px; padding-top: 0; }
+    .profile {
+      width: 100%;
+      justify-content: flex-start;
+      padding-bottom: 14px;
+      border-bottom: 1px dashed var(--line);
+    }
+    #playerName { background: var(--mustard); color: var(--ink); border-color: var(--ink); }
+    .room-panel, .available-rooms { width: 100%; }
+    .room-panel { padding: 0; gap: 18px; }
+    .room-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+    .room-unit {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-width: 0;
+    }
+    .room-unit h2, .rooms-heading { margin: 0; font-size: 18px; line-height: 1.3; }
+    .room-unit h2 { display: flex; align-items: center; gap: 8px; }
+    .room-unit h2::before {
+      content: "";
+      width: 10px;
+      height: 18px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: var(--mint);
+      transform: rotate(-8deg);
+    }
+    .room-unit.friends { border-left: 1px dashed var(--line); padding-left: 24px; }
+    .room-unit.friends h2::before { background: var(--coral); transform: rotate(8deg); }
+    .room-options, .room-join, .room-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .room-options select { min-height: 40px; }
+    .room-join { flex-wrap: nowrap; }
+    .room-join .room-input { min-width: 0; flex: 1 1 auto; height: 40px; }
+    .room-join button { flex: 0 0 auto; }
+    .room-unit > button { justify-self: start; }
+    .room-row:not(:has(#soloStartButton[hidden])) .room-controls,
+    .room-unit.solo:has(#soloStartButton[hidden]) h2,
+    .room-unit.friends:has(#createRoomButton[hidden]) { display: none; }
+    .room-row:has(#createRoomButton[hidden]) { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .room-controls { grid-column: 1 / -1; }
+    .rooms-section { display: grid; gap: 8px; }
+    .rooms-section:has(.available-rooms:empty) { display: none; }
+    .rooms-heading { font-size: 15px; }
+    .available-room, .player-line, .initial-score-row {
+      min-height: 44px;
+      background: var(--panel);
+      border-color: var(--line);
+    }
+    .available-room > span, .player-line > strong { min-width: 0; overflow-wrap: anywhere; }
+    .available-room > button, .player-line > button { flex: 0 0 auto; }
+    .icon-button, .mini-button, .secondary, .primary, .key {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: 0 2px 0 var(--elevation);
+    }
+    .mini-button { min-height: 38px; }
+    #soloStartButton, #startRoomButton, #initialGuessButton, .primary {
+      background: var(--coral);
+      color: var(--ink);
+      border-color: var(--ink);
+      box-shadow: 0 3px 0 var(--ink);
+    }
+    #soloStartButton, #createRoomButton { padding: 0 16px; min-height: 42px; }
+    #createRoomButton, #readyButton { background: var(--mint); border-color: var(--moss); color: var(--ink); }
+    button:not(:disabled):active { box-shadow: none; }
+    button:focus-visible, select:focus-visible, input:focus-visible, .keyboard-handle:focus-visible {
+      outline-color: var(--moss);
+    }
+    .meta { padding: 2px 4px; }
+    body.solo-playing :is(.profile, .room-panel, .ad-slot) { display: none; }
+    body.solo-playing:not(.initial-playing) .app { gap: 10px; }
+    body.solo-playing .stage { gap: 10px; }
+    .stage:has(.board[hidden]):has(.initial-prompt-card[hidden]) .meta:not(:has(button:not([hidden]))):not(:has(#roundClock:not([hidden]))) { display: none; }
+    #tryCount { background: var(--mint); color: var(--ink); }
+    .board, body.playing .board {
+      width: min(100%, 420px);
+      grid-template-rows: repeat(5, minmax(0, 1fr));
+    }
+    body.solo-playing .board {
+      width: min(100%, 420px, max(230px, calc(100svh - 340px)));
+    }
+    .row { grid-template-columns: repeat(var(--word-length), minmax(0, 1fr)); min-height: 0; }
+    .tile { position: relative; box-shadow: 0 3px 0 var(--elevation); }
+    .tile.filled:not(.correct, .present, .absent, .hint) { border-color: var(--moss); background: var(--mint-soft); }
+    .tile.correct, .tile.hint { background: var(--green); border-color: var(--blue-edge); box-shadow: 0 3px 0 var(--blue-edge); }
+    .tile.present { background: var(--yellow); border-color: var(--orange-edge); box-shadow: 0 3px 0 var(--orange-edge); }
+    .tile.absent { background: var(--gray); border-color: var(--gray); box-shadow: 0 3px 0 var(--gray); color: var(--white); }
+    .tile[data-feedback]::before {
+      content: attr(data-feedback);
+      position: absolute;
+      top: 3px;
+      right: 4px;
+      font-size: 11px;
+      line-height: 1;
+    }
+    .board-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+    .board-legend[hidden] { display: none; }
+    .board-legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .board-legend b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 3px; }
+    .board-legend .correct { background: var(--green); }
+    .board-legend .present { background: var(--yellow); }
+    .board-legend .absent { background: var(--gray); color: var(--white); }
+    .keyboard, body.playing .keyboard { width: min(100%, 480px); }
+    .key, body.playing .key { height: 44px; }
+    .key.wide { background: var(--mint-soft); }
+    .key[data-key="입력"] { background: var(--mint); border-color: var(--moss); }
+    .key.correct, .key.wide.correct { background: var(--green); }
+    .key.present { background: var(--yellow); }
+    .key.absent { background: var(--gray); color: var(--white); }
+    .initial-prompt-card {
+      min-height: 0;
+      border: 2px solid var(--ink);
+      box-shadow: 0 5px 0 var(--ink);
+    }
+    .initial-prompt-head {
+      min-height: 46px;
+      border-bottom: 1px solid var(--ink);
+      background: var(--mint);
+      color: var(--ink);
+    }
+    .initial-prompt-body {
+      grid-template-rows: minmax(100px, auto) minmax(54px, auto);
+      gap: 12px;
+      min-height: 0;
+      padding: 18px 16px 14px;
+      background: repeating-linear-gradient(var(--panel) 0 27px, var(--mint-soft) 27px 28px);
+    }
+    .initial-hint-text {
+      display: grid;
+      align-items: center;
+      min-height: 54px;
+      margin: 0;
+      background: var(--mustard);
+      color: var(--ink);
+    }
+    .initial-guess-box { margin-top: 0; }
+    .chain-game { width: min(100%, 620px); min-width: 0; display: grid; gap: 12px; }
+    .chain-game[hidden] { display: none; }
+    .chain-turn {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      overflow-wrap: anywhere;
+    }
+    .chain-turn time { min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink); background: var(--mustard); }
+    .chain-turn-tools { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+    #chainHintButton { min-inline-size: 78px; }
+    .chain-word { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; padding: 8px 0 10px; }
+    .chain-word span {
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 62px;
+      border: 1px solid var(--ink);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 3px 0 var(--ink);
+      font-size: 32px;
+      font-weight: 900;
+    }
+    .chain-word span:last-child { background: var(--mint); }
+    .chain-chat { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .chain-scroll {
+      block-size: clamp(190px, 46svh, 420px);
+      max-block-size: max(104px, calc(var(--chain-visible-height, 100svh) - 300px));
+      min-inline-size: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 10px 12px;
+      background: var(--mint-soft);
+      border-radius: 7px 7px 0 0;
+    }
+    .chain-history {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .chain-history li { display: grid; gap: 3px; max-inline-size: 85%; overflow-wrap: anywhere; }
+    .chain-history span { color: var(--muted); font-size: 12px; }
+    .chain-history strong {
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px 8px 8px 2px;
+      background: var(--panel);
+      font-size: 16px;
+    }
+    .chain-history .chain-own { align-self: flex-end; justify-items: end; }
+    .chain-own strong { border-color: var(--moss); border-radius: 8px 8px 2px 8px; background: var(--mint); }
+    .chain-history .chain-opening { align-self: center; justify-items: center; }
+    .chain-opening strong { border-radius: 8px; }
+    .chain-bubble { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .chain-challenge { min-height: 32px; padding: 0 8px; }
+    .chain-definition {
+      max-width: 100%;
+      margin: 2px 0 0;
+      padding: 7px 9px;
+      border-left: 2px solid var(--moss);
+      background: var(--panel);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .chain-definition a { display: block; margin-top: 4px; color: var(--moss); }
+    .chain-composer { display: grid; gap: 5px; padding: 7px 10px 10px; border-top: 1px solid var(--line); }
+    .chain-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+    .chain-form input { width: 100%; }
+    .chain-form button { padding: 0 16px; }
+    .chain-message, .chain-hint { margin: 0; font-size: 14px; }
+    .chain-message:empty { display: none; }
+    .chain-message { color: var(--red); }
+    .chain-hint { color: var(--ink); background: var(--mustard); padding: 4px 8px; border-radius: 8px; }
+    .stage:has(.chain-game:not([hidden])) :is(#tryCount, #guideText, #roundClock) { display: none; }
+    body.playing:has(.chain-game:not([hidden])) .stage { align-self: start; padding-top: 14px; }
+    @media (max-width: 360px) {
+      .chain-word span { width: 54px; height: 58px; }
+      .room-options select { max-width: 100%; }
+    }
+    body.playing.initial-playing .stage { align-self: start; padding-top: 18px; }
+    body.playing.initial-playing .rooms-section { display: none; }
+    .initial-scoreboard-title { text-align: left; }
+    .dialog { background: var(--panel); border-color: var(--ink); box-shadow: 0 12px 28px var(--sheet-shadow), 0 4px 0 var(--ink); }
+    .panel { background: var(--overlay); }
+    .toast { min-height: 32px; padding: 5px 12px; background: var(--moss); }
+    .toast:not(.show) { background: transparent; }
+    @media (max-width: 600px) {
+      .app { padding: 12px 12px 16px; }
+      .app > header { gap: 6px; padding-bottom: 10px; }
+      .brand { gap: 5px; }
+      .brand-mark { display: block; width: 52px; height: 42px; }
+      h1 { font-size: 24px; }
+      .room-row { gap: 16px; }
+      .room-unit.friends { padding-left: 14px; }
+      .room-join .room-input, .chat-input { font-size: 16px; }
+    }
+    @media (max-width: 375px) {
+      .room-row { grid-template-columns: minmax(0, 1fr); }
+      .room-unit.friends { border-left: 0; border-top: 1px dashed var(--line); padding: 12px 0 0; }
+      .brand-mark { width: 43px; }
+      h1 { font-size: 21px; }
+    }
   </style>
 </head>
 <body>
   <main class="app">
     <header>
-      <button class="icon-button" id="helpButton" title="게임방법" aria-label="게임방법">게임방법</button>
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 80 58" aria-hidden="true">
           <g transform="rotate(-8 24 28)">
@@ -1244,8 +1528,9 @@
             <path d="M52 43q5 5 10 0" fill="none" stroke="#9a5749" stroke-width="2" stroke-linecap="round"/>
           </g>
         </svg>
-        <h1>단어&초성게임</h1>
+        <h1>단어배틀</h1>
       </div>
+      <button class="icon-button" id="helpButton" title="게임방법" aria-label="게임방법">게임방법</button>
       <button class="icon-button" id="newButton" title="새 문제" aria-label="새 문제">↻</button>
     </header>
 
@@ -1258,25 +1543,42 @@
       </div>
       <div class="room-panel" id="roomPanel">
         <div class="room-row">
-          <span class="chip" id="roomStatus">혼자 하기</span>
-          <button class="mini-button" id="soloStartButton" type="button">혼자 시작</button>
-          <button class="mini-button" id="createRoomButton">방 만들기</button>
-          <input class="room-input" id="roomCodeInput" maxlength="6" placeholder="방 코드">
-          <button class="mini-button" id="joinRoomButton">입장</button>
-          <select class="mode-select" id="gameModeSelect" title="게임 방식" aria-label="게임 방식">
-            <option value="jamo">자모</option>
-            <option value="initial">초성</option>
-          </select>
-          <select class="length-select" id="wordLengthSelect" title="낱자 수" aria-label="낱자 수">
-            <option value="5">5낱자</option>
-            <option value="6">6낱자</option>
-          </select>
-          <button class="mini-button" id="readyButton" hidden>준비</button>
-          <button class="mini-button" id="startRoomButton" hidden>같이 시작</button>
-          <button class="mini-button" id="leaveRoomButton" hidden>나가기</button>
+          <div class="room-unit solo">
+            <h2>혼자 하기</h2>
+            <div class="room-options">
+              <select class="mode-select" id="gameModeSelect" title="게임 방식" aria-label="게임 방식">
+                <option value="jamo">자모</option>
+                <option value="initial">초성</option>
+                <option value="chain3">쿵쿵따 3글자</option>
+                <option value="chain4">쿵쿵따 4글자</option>
+              </select>
+              <select class="length-select" id="wordLengthSelect" title="낱자 수" aria-label="낱자 수">
+                <option value="5">5낱자</option>
+                <option value="6">6낱자</option>
+              </select>
+            </div>
+            <button class="mini-button" id="soloStartButton" type="button">혼자 시작</button>
+          </div>
+          <div class="room-unit friends">
+            <h2>친구와 대결</h2>
+            <div class="room-join">
+              <input class="room-input" id="roomCodeInput" aria-label="방 코드" maxlength="6" placeholder="방 코드">
+              <button class="mini-button" id="joinRoomButton">입장</button>
+            </div>
+            <button class="mini-button" id="createRoomButton">방 만들기</button>
+          </div>
+          <div class="room-controls">
+            <span class="chip" id="roomStatus">혼자 하기</span>
+            <button class="mini-button" id="readyButton" hidden>준비</button>
+            <button class="mini-button" id="startRoomButton" hidden>같이 시작</button>
+            <button class="mini-button" id="leaveRoomButton" hidden>나가기</button>
+          </div>
         </div>
         <div class="room-list" id="roomPlayers" hidden></div>
-        <div class="available-rooms" id="availableRooms"></div>
+        <div class="rooms-section">
+          <h2 class="rooms-heading">대기 중인 방</h2>
+          <div class="available-rooms" id="availableRooms"></div>
+        </div>
         <div class="chat-box" id="chatBox" hidden>
           <div class="chat-log" id="chatLog"></div>
           <div class="chat-form">
@@ -1288,15 +1590,39 @@
       <div class="meta">
         <span class="chip" id="tryCount">1 / 5</span>
         <span class="chip timer-chip" id="roundClock" hidden>3:30</span>
+        <button class="mini-button" id="soloLobbyButton" type="button" hidden>대기실</button>
         <button class="mini-button" id="gameLeaveButton" type="button" hidden>나가기</button>
         <button class="mini-button" id="hintButton" type="button" hidden>힌트</button>
         <span id="guideText">사전 표제어를 자음과 모음 5칸으로 입력하세요</span>
       </div>
+      <section class="chain-game" id="chainGame" aria-labelledby="chainTitle" hidden>
+        <h2 class="rooms-heading" id="chainTitle">쿵쿵따</h2>
+        <div class="chain-turn">
+          <strong id="chainTurn" aria-live="polite"></strong>
+          <div class="chain-turn-tools">
+            <button class="mini-button" id="chainHintButton" type="button">힌트 1회</button>
+            <time class="chip" id="chainClock" aria-label="남은 시간">0:20</time>
+          </div>
+        </div>
+        <div class="chain-word" id="chainWord" aria-label="마지막 단어"></div>
+        <div class="chain-chat">
+          <div class="chain-scroll" id="chainScroll" role="log" aria-label="쿵쿵따 단어 채팅" tabindex="0">
+            <ul class="chain-history" id="chainHistory"></ul>
+          </div>
+          <div class="chain-composer">
+            <p class="chain-hint" id="chainHint" role="status" hidden></p>
+            <p class="chain-message" id="chainMessage" role="status"></p>
+            <form class="chain-form" id="chainForm">
+              <input class="initial-guess-input" id="chainInput" type="text" aria-label="이을 단어" autocomplete="off" spellcheck="false" enterkeyhint="send" maxlength="4" required>
+              <button class="primary" id="chainSubmit" type="submit">잇기</button>
+            </form>
+          </div>
+        </div>
+      </section>
       <div class="initial-prompt-card" id="initialPromptCard" hidden>
         <div class="initial-prompt-head" id="initialPromptTitle">초성 문제</div>
         <div class="initial-prompt-body">
           <div class="initial-clue" id="initialClueText">ㄱ ㄴ</div>
-          <div class="initial-prompt-caption">초성에 맞는 2글자 정답을 빠르게 입력하세요</div>
           <div class="initial-hint-text" id="initialHintText" hidden></div>
         </div>
       </div>
@@ -1305,6 +1631,11 @@
         <div class="initial-score-list" id="initialScoreList"></div>
       </div>
       <div class="board" id="board" aria-label="낱자 입력판"></div>
+      <div class="board-legend" id="boardLegend" aria-label="결과 표시" hidden>
+        <span><b class="correct" aria-hidden="true">&#10003;</b>자리 맞음</span>
+        <span><b class="present" aria-hidden="true">&#8596;</b>다른 자리</span>
+        <span><b class="absent" aria-hidden="true">&#215;</b>정답에 없음</span>
+      </div>
       <div class="initial-guess-box" id="initialGuessBox" hidden>
         <input class="initial-guess-input" id="initialGuessInput" maxlength="6" placeholder="정답 단어">
         <button class="mini-button" id="initialGuessButton" type="button">입력</button>
@@ -1364,6 +1695,7 @@
         <button class="primary" id="closeHelpButton">시작하기</button>
         <button class="secondary" id="sparkButton">반짝 채집 열기</button>
       </div>
+      <p><small>쿵쿵따 단어 자료: 국립국어원 <a href="https://krdict.korean.go.kr/">한국어기초사전</a>·<a href="https://stdict.korean.go.kr/">표준국어대사전</a> 가공본 (<a href="https://creativecommons.org/licenses/by-sa/2.0/kr/">CC BY-SA 2.0 KR</a>)</small></p>
     </div>
   </section>
 
@@ -1414,6 +1746,8 @@
 
   <div class="countdown" id="countdownOverlay" hidden>3</div>
 
+  <script src="./word-chain-lexicon.js?v=5"></script>
+  <script src="./word-chain.js?v=5"></script>
   <script async type="text/javascript" src="https://t1.kakaocdn.net/kas/static/ba.min.js"></script>
   <script>
     (adsbygoogle = window.adsbygoogle || []).push({});
@@ -2105,6 +2439,7 @@
     const encyclopedia = buildEncyclopedia();
 
     const board = document.getElementById("board");
+    const boardLegend = document.getElementById("boardLegend");
     const initialPromptCard = document.getElementById("initialPromptCard");
     const initialPromptTitle = document.getElementById("initialPromptTitle");
     const initialClueText = document.getElementById("initialClueText");
@@ -2150,6 +2485,23 @@
     const gameModeSelect = document.getElementById("gameModeSelect");
     const wordLengthSelect = document.getElementById("wordLengthSelect");
     const soloStartButton = document.getElementById("soloStartButton");
+    const soloLobbyButton = document.getElementById("soloLobbyButton");
+    const chainGame = document.getElementById("chainGame");
+    const chainForm = document.getElementById("chainForm");
+    const chainInput = document.getElementById("chainInput");
+    const chainSubmit = document.getElementById("chainSubmit");
+    const chainMessage = document.getElementById("chainMessage");
+    const chainClock = document.getElementById("chainClock");
+    const chainScroll = document.getElementById("chainScroll");
+    const chainHistory = document.getElementById("chainHistory");
+    const chainHintButton = document.getElementById("chainHintButton");
+    const chainHint = document.getElementById("chainHint");
+    const chainRules = window.WordChain;
+    let soloChain = null;
+    let sharedChain = null;
+    let chainSending = false;
+    let chainHintPending = false;
+    let chainHintWord = "";
     const createRoomButton = document.getElementById("createRoomButton");
     const joinRoomButton = document.getElementById("joinRoomButton");
     const readyButton = document.getElementById("readyButton");
@@ -2251,6 +2603,7 @@
     }
 
     function normalizeGameMode(mode) {
+      if (chainRules.modeLength(mode)) return mode;
       return mode === "initial" ? "initial" : "jamo";
     }
 
@@ -2900,19 +3253,23 @@
 
     function updateGameInputMode() {
       const isInitial = state.gameMode === "initial";
+      const isChain = Boolean(chainRules.modeLength(state.gameMode));
       const isSoloWaiting = !roomState.joined && !state.soloStarted;
+      const isSoloPlaying = !roomState.joined && state.soloStarted;
+      document.body.classList.toggle("solo-playing", isSoloPlaying);
+      soloLobbyButton.hidden = !isSoloPlaying;
       const showInitialPrompt = isInitial && ((roomState.joined && roomState.started) || (!roomState.joined && state.soloStarted));
       const useSoloInitialInput = isInitial && !roomState.joined && state.soloStarted;
-      board.hidden = isSoloWaiting || isInitial;
-      keyboardTray.hidden = isSoloWaiting || isInitial;
+      board.hidden = isSoloWaiting || isInitial || isChain;
+      boardLegend.hidden = board.hidden;
+      keyboardTray.hidden = board.hidden;
+      chainGame.hidden = !isChain || (roomState.joined
+        ? !roomState.started || roomState.sittingOut
+        : !state.soloStarted || !soloChain);
       initialPromptCard.hidden = !showInitialPrompt;
       initialGuessBox.hidden = !useSoloInitialInput;
       renderInitialScoreboard();
       if (showInitialPrompt) updateInitialPrompt();
-      if (isInitial) {
-        state.wordLength = 2;
-        document.documentElement.style.setProperty("--word-length", "2");
-      }
     }
 
     function makeBoard() {
@@ -3128,7 +3485,6 @@
       state.answer = isAnswer(answerOverride)
         ? answerOverride
         : (state.gameMode === "initial" ? pickInitialAnswer(state.answer?.word) : pickAnswer(state.answer?.word));
-      if (state.gameMode === "initial") state.wordLength = 2;
       state.row = 0;
       state.col = 0;
       state.done = false;
@@ -3158,6 +3514,10 @@
     }
 
     function clearBoardForWaiting() {
+      soloChain = null;
+      chainInput.value = "";
+      chainMessage.textContent = "";
+      resetChainDisplay();
       clearInitialHintTimer();
       if (state.soloRoundTimer) {
         window.clearInterval(state.soloRoundTimer);
@@ -3189,13 +3549,279 @@
 
     function startSoloGame() {
       if (roomState.joined) return;
+      if (chainRules.modeLength(state.gameMode)) {
+        startSoloChain();
+        return;
+      }
       state.soloStarted = true;
       state.soloInitialScore = 0;
       state.soloEndsAt = state.gameMode === "initial" ? Date.now() + SOLO_INITIAL_ROUND_MS : 0;
       state.done = false;
       setPlayingMode(state.gameMode === "initial");
       reset();
-      if (state.gameMode === "initial") startSoloInitialRoundTimer();
+      if (state.gameMode === "initial") {
+        startSoloInitialRoundTimer();
+        initialGuessInput.focus();
+      }
+    }
+
+    function startSoloChain() {
+      const length = chainRules.modeLength(state.gameMode);
+      const opening = chainRules.starter(length);
+      soloChain = {
+        moves: [{ word: opening, name: "" }],
+        used: new Set([opening]),
+        turnId: "solo",
+        hintUsed: false,
+        endsAt: Date.now() + chainRules.TURN_MS
+      };
+      state.soloStarted = true;
+      state.done = false;
+      state.recorded = false;
+      state.guesses = [];
+      chainInput.value = "";
+      chainMessage.textContent = "";
+      resetChainDisplay();
+      resultPanel.hidden = true;
+      setPlayingMode(true);
+      updateGameInputMode();
+      renderChain();
+      chainInput.focus();
+    }
+
+    function currentChain() {
+      return roomState.joined ? sharedChain : soloChain;
+    }
+
+    function isMyChainTurn(chain) {
+      return chain?.turnId === (roomState.joined ? roomState.playerId : "solo");
+    }
+
+    function resetChainDisplay() {
+      chainHistory.replaceChildren();
+      chainHintWord = "";
+      chainHint.hidden = true;
+    }
+
+    function renderChainHistory(moves) {
+      const lastShown = chainHistory.lastElementChild?.dataset.word;
+      const offset = lastShown ? moves.findIndex(({ word }) => word === lastShown) + 1 : 0;
+      const nearBottom = chainScroll.scrollHeight - chainScroll.scrollTop - chainScroll.clientHeight < 36;
+      if (!offset) chainHistory.replaceChildren();
+      const myId = roomState.joined ? roomState.playerId : "solo";
+      for (const { word, name, playerId } of moves.slice(offset)) {
+        const row = document.createElement("li");
+        row.dataset.word = word;
+        if (playerId === myId) row.className = "chain-own";
+        else if (!name) row.className = "chain-opening";
+        const label = document.createElement("span");
+        label.textContent = playerId === myId ? "나" : name || "시작 단어";
+        const bubbleRow = document.createElement("div");
+        bubbleRow.className = "chain-bubble";
+        const bubble = document.createElement("strong");
+        bubble.textContent = word;
+        bubbleRow.append(bubble);
+        if (name && playerId !== myId) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "mini-button chain-challenge";
+          button.textContent = "이의 제기";
+          button.setAttribute("aria-label", `${word} 이의 제기`);
+          button.setAttribute("aria-expanded", "false");
+          button.addEventListener("click", () => showChainDefinition(row, true));
+          bubbleRow.append(button);
+        }
+        const definition = document.createElement("p");
+        definition.className = "chain-definition";
+        definition.hidden = true;
+        definition.setAttribute("role", "status");
+        row.append(label, bubbleRow, definition);
+        chainHistory.append(row);
+      }
+      if (offset < moves.length && (nearBottom || !offset || moves.at(-1).playerId === myId)) {
+        requestAnimationFrame(() => { chainScroll.scrollTop = chainScroll.scrollHeight; });
+      }
+      for (const move of moves) {
+        if (!move.challenged) continue;
+        const row = chainHistory.querySelector(`li[data-word="${CSS.escape(move.word)}"]`);
+        if (row?.querySelector(".chain-definition").hidden) showChainDefinition(row);
+      }
+    }
+
+    async function showChainDefinition(row, requested = false) {
+      const panel = row.querySelector(".chain-definition");
+      if (!panel.hidden && panel.dataset.failed !== "true") return;
+      const button = row.querySelector(".chain-challenge");
+      const word = row.dataset.word;
+      const pinned = chainScroll.scrollHeight - chainScroll.scrollTop - chainScroll.clientHeight < 36;
+      panel.hidden = false;
+      panel.dataset.failed = "false";
+      panel.textContent = "뜻 확인 중…";
+      if (button) button.disabled = true;
+      try {
+        const { meaning } = requested && roomState.joined
+          ? await apiPost("/api/chain-challenge", { room: roomState.room, playerId: roomState.playerId, word })
+          : await apiGet(`/api/chain-definition?word=${encodeURIComponent(word)}`);
+        panel.textContent = meaning?.definition || "연결된 사전 뜻풀이가 없어요.";
+        if (meaning?.url) {
+          const source = document.createElement("a");
+          source.href = meaning.url;
+          source.target = "_blank";
+          source.rel = "noopener noreferrer";
+          source.textContent = meaning.source;
+          panel.append(source);
+        } else if (meaning?.source) {
+          const source = document.createElement("span");
+          source.textContent = " · " + meaning.source;
+          panel.append(source);
+        }
+        if (button) button.setAttribute("aria-expanded", "true");
+      } catch {
+        panel.textContent = "뜻을 불러오지 못했어요.";
+        panel.dataset.failed = "true";
+        if (button) button.disabled = false;
+      }
+      if (pinned && row.isConnected) chainScroll.scrollTop = chainScroll.scrollHeight;
+    }
+
+    function fitChainChatToViewport() {
+      const viewport = window.visualViewport;
+      if (chainGame.hidden || !viewport || viewport.scale !== 1) return;
+      const pinned = chainScroll.scrollHeight - chainScroll.scrollTop - chainScroll.clientHeight < 36;
+      chainScroll.style.setProperty("--chain-visible-height", `${Math.floor(viewport.height)}px`);
+      if (pinned) chainScroll.scrollTop = chainScroll.scrollHeight;
+    }
+
+    function renderChain() {
+      const chain = currentChain();
+      if (!chain?.moves.length) return;
+      const length = chainRules.modeLength(state.gameMode);
+      const last = chain.moves.at(-1).word;
+      const myTurn = isMyChainTurn(chain);
+      const player = roomState.players.find((item) => item.id === chain.turnId);
+      document.getElementById("chainTitle").textContent = `쿵쿵따 ${length}글자`;
+      document.getElementById("chainTurn").textContent = myTurn ? "내 차례"
+        : roomState.joined ? `${player?.name || "다음 참가자"} 님 차례` : "컴퓨터 차례";
+      const wordDisplay = document.getElementById("chainWord");
+      wordDisplay.setAttribute("aria-label", `마지막 단어 ${last}`);
+      wordDisplay.replaceChildren(...[...last].map((letter) => {
+        const tile = document.createElement("span");
+        tile.textContent = letter;
+        return tile;
+      }));
+      chainInput.maxLength = length;
+      chainInput.placeholder = myTurn ? `${chainRules.starts(last.at(-1)).join(" / ")}(으)로 시작` : "이을 단어";
+      chainHint.hidden = !myTurn || chainHintWord !== last;
+      fitChainChatToViewport();
+      renderChainHistory(chain.moves);
+      updateChainClock();
+    }
+
+    function updateChainClock() {
+      if (chainGame.hidden) return;
+      const endsAt = roomState.joined ? roomState.endsAt : soloChain?.endsAt;
+      chainClock.textContent = endsAt ? formatTimeLeft(endsAt) : "—";
+      const expired = Boolean(endsAt && endsAt <= Date.now());
+      const myTurn = isMyChainTurn(currentChain());
+      const used = roomState.joined
+        ? roomState.players.find((player) => player.id === roomState.playerId)?.chainHintUsed
+        : soloChain?.hintUsed;
+      chainSubmit.disabled = chainSending || expired || !myTurn;
+      chainHintButton.disabled = chainHintPending || expired || !myTurn || Boolean(used);
+      chainHintButton.textContent = used ? "힌트 사용함" : "힌트 1회";
+      if (expired && soloChain && !roomState.joined) finishSoloChain(false, "차례 시간이 끝났어요.");
+    }
+
+    async function requestChainHint() {
+      updateChainClock();
+      const chain = currentChain();
+      if (chainGame.hidden || chainHintButton.disabled || !isMyChainTurn(chain)) return;
+      const target = chain.moves.at(-1).word;
+      const room = roomState.room;
+      const playerId = roomState.playerId;
+      chainHintPending = true;
+      updateChainClock();
+      try {
+        let hint;
+        if (roomState.joined) {
+          ({ hint } = await apiPost("/api/chain-hint", { room, playerId }));
+          if (roomState.room !== room || roomState.playerId !== playerId) return;
+          const player = roomState.players.find((item) => item.id === playerId);
+          if (player) player.chainHintUsed = true;
+        } else {
+          hint = chainRules.hint(chainRules.modeLength(state.gameMode), target, chain.used);
+          if (!hint) throw new Error("이을 수 있는 단어가 없어요");
+          chain.hintUsed = true;
+        }
+        chainHintWord = target;
+        chainHint.textContent = `힌트: ${hint}`;
+        chainHint.hidden = !isMyChainTurn(currentChain()) || currentChain()?.moves.at(-1)?.word !== target;
+        chainMessage.textContent = "";
+      } catch (error) {
+        chainMessage.textContent = error.message;
+      } finally {
+        chainHintPending = false;
+        updateChainClock();
+      }
+    }
+
+    function finishSoloChain(won, reason) {
+      const total = soloChain.moves.length - 1;
+      recordGame(won, "", "solo");
+      setPlayingMode(false);
+      clearBoardForWaiting();
+      resetResultDialogPosition();
+      resultTitle.textContent = won ? "쿵쿵따 승리!" : "쿵쿵따 종료";
+      resultText.textContent = `${reason}\n이은 단어: ${total}개`;
+      resultPanel.hidden = false;
+    }
+
+    async function submitChainWord(event) {
+      event.preventDefault();
+      const chain = currentChain();
+      if (chainGame.hidden || chainSending || !isMyChainTurn(chain)) return;
+      if (document.activeElement !== chainInput) chainInput.focus();
+      const draft = chainInput.value;
+      const length = chainRules.modeLength(state.gameMode);
+      const previous = chain.moves.at(-1).word;
+      try {
+        if (roomState.joined) {
+          chainSending = true;
+          updateChainClock();
+          await apiPost("/api/chain-word", { room: roomState.room, playerId: roomState.playerId, word: draft });
+        } else {
+          if (Date.now() >= chain.endsAt) {
+            finishSoloChain(false, "차례 시간이 끝났어요.");
+            return;
+          }
+          const word = chainRules.validate(draft, length, previous, chain.used);
+          chain.moves.push({ word, name: state.nickname, playerId: "solo" });
+          chain.used.add(word);
+          chain.turnId = "computer";
+          chain.endsAt = 0;
+          renderChain();
+          window.setTimeout(() => {
+            if (soloChain !== chain) return;
+            const reply = chainRules.computer(length, word, chain.used);
+            if (!reply) {
+              finishSoloChain(true, "컴퓨터가 단어를 잇지 못했어요.");
+              return;
+            }
+            chain.moves.push({ word: reply, name: "컴퓨터" });
+            chain.used.add(reply);
+            chain.turnId = "solo";
+            chain.endsAt = Date.now() + chainRules.TURN_MS;
+            renderChain();
+          }, 420);
+        }
+        if (chainInput.value === draft) chainInput.value = "";
+        chainMessage.textContent = "";
+      } catch (error) {
+        chainMessage.textContent = error.message;
+      } finally {
+        chainSending = false;
+        updateChainClock();
+      }
     }
 
     function tilesInRow(rowIndex = state.row) {
@@ -3259,6 +3885,7 @@
     }
 
     async function submitGuess() {
+      if (chainRules.modeLength(state.gameMode)) return;
       if (state.done || state.checking) return;
       if (roomState.joined && !roomState.started) {
         rejectRow("방장이 같이 시작을 눌러야 해요");
@@ -3336,10 +3963,17 @@
     }
 
     function reveal(guess, result) {
+      const feedback = {
+        correct: ["\u2713", "자리 맞음"],
+        present: ["\u2194", "다른 자리"],
+        absent: ["\u00d7", "정답에 없음"]
+      };
       tilesInRow().forEach((tile, index) => {
         window.setTimeout(() => {
           const status = result[index];
           tile.classList.add(status);
+          tile.dataset.feedback = feedback[status][0];
+          tile.title = `${guess[index]}: ${feedback[status][1]}`;
           setKeyStatus(guess[index], status);
         }, index * 115);
       });
@@ -3405,6 +4039,10 @@
     }
 
     function updateRoundClock() {
+      if (chainRules.modeLength(state.gameMode)) {
+        roundClock.hidden = true;
+        return;
+      }
       if (roomState.joined && roomState.started && roomState.endsAt) {
         roundClock.hidden = false;
         roundClock.textContent = `\uB0A8\uC740\uC2DC\uAC04 ${formatTimeLeft(roomState.endsAt)}`;
@@ -3446,6 +4084,15 @@
     }
 
     async function copyResult() {
+      if (chainRules.modeLength(state.gameMode)) {
+        try {
+          await navigator.clipboard.writeText(`쿵쿵따 ${chainRules.modeLength(state.gameMode)}글자\n${resultText.textContent}\n${getShareUrl()}`);
+          showToast("결과를 복사했어요");
+        } catch {
+          showToast("복사 권한이 필요해요");
+        }
+        return;
+      }
       const lines = state.guesses.map(({ result }) => result.map(resultEmoji).join(""));
       const stats = getCurrentStats();
       const text = `단어&초성게임 ${state.nickname} ${state.guesses.length}/${MAX_GUESSES}\n${lines.join("\n")}\n승률 ${getWinRate(stats)} · 연승 ${stats.streak}\n${getShareUrl()}`;
@@ -3762,7 +4409,7 @@
         }
         availableRooms.innerHTML = list.map((room) => `
           <div class="available-room">
-            <span><strong>${escapeHtml(room.code)}</strong> · ${room.count}/5명 · ${room.gameMode === "initial" ? "초성" : "자모"} · ${room.wordLength}낱자 · 방장 ${escapeHtml(room.hostName)}</span>
+            <span><strong>${escapeHtml(room.code)}</strong> · ${room.count}/5명 · ${chainRules.modeLength(room.gameMode) ? `쿵쿵따 ${chainRules.modeLength(room.gameMode)}글자` : room.gameMode === "initial" ? "초성" : `자모 ${room.wordLength}낱자`} · 방장 ${escapeHtml(room.hostName)}</span>
             <button class="mini-button" type="button" data-room-code="${escapeHtml(room.code)}">입장</button>
           </div>
         `).join("");
@@ -3797,6 +4444,7 @@
       roomState.playerId = data.playerId;
       roomState.joined = true;
       roomState.started = false;
+      sharedChain = null;
       roomCodeInput.value = data.room;
       availableRooms.innerHTML = "";
       saveRoomSession();
@@ -3869,6 +4517,23 @@
         showToast("대기실로 이동했어요");
       }
       if (!isSittingOut) roomState.sittingOut = false;
+      const chainLength = chainRules.modeLength(nextGameMode);
+      if (chainLength && data.chain) {
+        sharedChain = data.chain;
+        if (roomState.started && !isSittingOut) {
+          if (!wasStarted) {
+            state.done = false;
+            state.recorded = false;
+            resultPanel.hidden = true;
+            chainMessage.textContent = "";
+            resetChainDisplay();
+          }
+          countdownOverlay.hidden = true;
+          setPlayingMode(true);
+          renderChain();
+        }
+      }
+      if (chainLength) updateGameInputMode();
       if (!roomState.started && data.wordLength) {
         const nextLength = Number(data.wordLength) === 6 ? 6 : 5;
         const wordLengthChanged = state.wordLength !== nextLength;
@@ -3913,7 +4578,7 @@
       startRoomButton.hidden = !isHost;
       gameModeSelect.hidden = false;
       gameModeSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
-      wordLengthSelect.hidden = state.gameMode === "initial";
+      wordLengthSelect.hidden = state.gameMode !== "jamo";
       wordLengthSelect.disabled = !isHost || roomState.started || Boolean(data.countdownUntil);
       leaveRoomButton.hidden = false;
       readyButton.textContent = me?.ready ? "준비 완료" : "준비";
@@ -3926,7 +4591,7 @@
       chatSendButton.textContent = useChatAsInitialGuess ? "입력" : "전송";
       gameLeaveButton.hidden = !(roomState.joined && roomState.started && !isSittingOut);
       renderInitialScoreboard();
-      if (roomState.started && !isSittingOut) startRoundTimer();
+      if (roomState.started && !isSittingOut && !chainLength) startRoundTimer();
     }
 
     function escapeHtml(text) {
@@ -4006,19 +4671,19 @@
 
     function submitInitialGuessText() {
       if (state.gameMode !== "initial") return;
+      if (document.activeElement !== initialGuessInput) initialGuessInput.focus();
       const word = initialGuessInput.value.trim();
       if (!word) {
         showToast("정답 단어를 입력하세요");
         return;
       }
       initialGuessInput.value = "";
-      initialGuessInput.blur();
       sendInitialGuess(word);
     }
 
     function beginCountdown(answer, startsAt, data) {
       updateRoomView(data);
-      reset(answer);
+      if (!chainRules.modeLength(state.gameMode)) reset(answer);
       state.done = true;
       setPlayingMode(true);
       resultPanel.hidden = true;
@@ -4038,6 +4703,10 @@
     }
 
     function startSharedGame(answer, data) {
+      if (chainRules.modeLength(data.gameMode)) {
+        updateRoomView(data);
+        return;
+      }
       roomState.started = true;
       roomState.sittingOut = false;
       updateRoomView(data);
@@ -4170,6 +4839,12 @@
       countdownOverlay.hidden = true;
       gameLeaveButton.hidden = true;
       resetResultDialogPosition();
+      if (chainRules.modeLength(state.gameMode)) {
+        resultTitle.textContent = won ? "쿵쿵따 승리!" : "쿵쿵따 종료";
+        resultText.textContent = [winner ? `${winner.name}님이 이겼어요.` : "승자가 없어요.", `이은 단어: ${data.chain?.total ?? 0}개`].join("\n");
+        resultPanel.hidden = false;
+        return;
+      }
       if (state.gameMode === "initial") {
         const ranking = [...players]
           .sort((a, b) => (b.score || 0) - (a.score || 0) || a.name.localeCompare(b.name, "ko"))
@@ -4295,6 +4970,7 @@
       roomState.playerId = "";
       roomState.hostId = "";
       roomState.joined = false;
+      sharedChain = null;
       roomState.started = false;
       roomState.players = [];
       roomState.endsAt = 0;
@@ -4318,7 +4994,7 @@
       startRoomButton.hidden = true;
       gameModeSelect.hidden = false;
       gameModeSelect.disabled = false;
-      wordLengthSelect.hidden = false;
+      wordLengthSelect.hidden = state.gameMode !== "jamo";
       wordLengthSelect.disabled = false;
       leaveRoomButton.hidden = true;
       gameLeaveButton.hidden = true;
@@ -4357,6 +5033,7 @@
       const text = chatInput.value.trim();
       if (!text || !roomState.joined) return;
       if (roomState.started && state.gameMode === "initial" && !roomState.sittingOut) {
+        if (document.activeElement !== chatInput) chatInput.focus();
         chatInput.value = "";
         await sendInitialGuess(text);
         return;
@@ -4615,7 +5292,10 @@
     }
 
     document.addEventListener("keydown", (event) => {
+      if (event.isComposing || event.target === chainInput || event.target === chainSubmit
+        || event.target === chainHintButton || chainHistory.contains(event.target)) return;
       if (event.target === nameInput || event.target === chatInput || event.target === roomCodeInput || event.target === initialGuessInput) return;
+      if (event.key === "Enter" && (event.target === soloLobbyButton || event.target === soloStartButton)) return;
       if (event.key === "Enter") {
         event.preventDefault();
         submitGuess();
@@ -4660,6 +5340,21 @@
     });
     document.getElementById("saveNameButton").addEventListener("click", () => setNickname(nameInput.value));
     soloStartButton.addEventListener("click", startSoloGame);
+    chainForm.addEventListener("submit", submitChainWord);
+    chainHintButton.addEventListener("click", requestChainHint);
+    for (const [button, input] of [[chainSubmit, chainInput], [chainHintButton, chainInput], [initialGuessButton, initialGuessInput], [chatSendButton, chatInput]]) {
+      button.addEventListener("mousedown", (event) => {
+        if (document.activeElement === input) event.preventDefault();
+      });
+    }
+    window.setInterval(updateChainClock, 250);
+    soloLobbyButton.addEventListener("click", () => {
+      if (roomState.joined || !state.soloStarted) return;
+      resultPanel.hidden = true;
+      setPlayingMode(false);
+      clearBoardForWaiting();
+      soloStartButton.focus();
+    });
     createRoomButton.addEventListener("click", createRoom);
     joinRoomButton.addEventListener("click", () => joinRoom());
     readyButton.addEventListener("click", toggleReady);
@@ -4710,7 +5405,7 @@
         return;
       }
       setGameMode(nextMode);
-      wordLengthSelect.hidden = nextMode === "initial";
+      wordLengthSelect.hidden = nextMode !== "jamo";
       state.soloStarted = false;
       clearBoardForWaiting();
     });
@@ -4725,11 +5420,11 @@
     gameLeaveButton.addEventListener("click", leaveRoom);
     chatSendButton.addEventListener("click", sendChat);
     chatInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") sendChat();
+      if (event.key === "Enter" && !event.isComposing && event.keyCode !== 229) sendChat();
     });
     initialGuessButton.addEventListener("click", submitInitialGuessText);
     initialGuessInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") submitInitialGuessText();
+      if (event.key === "Enter" && !event.isComposing && event.keyCode !== 229) submitInitialGuessText();
     });
     roomCodeInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinRoom();
@@ -4742,6 +5437,7 @@
     });
     window.addEventListener("resize", fitKeyboardToViewport);
     window.visualViewport?.addEventListener("resize", fitKeyboardToViewport);
+    window.visualViewport?.addEventListener("resize", fitChainChatToViewport);
     window.visualViewport?.addEventListener("scroll", fitKeyboardToViewport);
     window.setInterval(refreshRoomList, 5000);
 

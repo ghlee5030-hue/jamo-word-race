@@ -2,6 +2,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const wordChain = require("./word-chain");
+const chainDictionary = require("./word-chain-dictionary");
 
 const root = __dirname;
 const rooms = new Map();
@@ -24,11 +26,15 @@ const ROOM_CREATE_WINDOW_MS = 10 * 60000;
 const ROOM_CREATE_MAX = 8;
 const RATE_LIMIT_RULES = {
   "GET /api/rooms": { windowMs: 10000, max: 30 },
+  "GET /api/chain-definition": { windowMs: 10000, max: 35 },
   "GET /events": { windowMs: 60000, max: 20 },
   "POST /api/room": { windowMs: 60000, max: 6 },
   "POST /api/join": { windowMs: 60000, max: 20 },
   "POST /api/start": { windowMs: 60000, max: 20 },
   "POST /api/initial-guess": { windowMs: 10000, max: 40 },
+  "POST /api/chain-word": { windowMs: 10000, max: 35 },
+  "POST /api/chain-hint": { windowMs: 10000, max: 12 },
+  "POST /api/chain-challenge": { windowMs: 10000, max: 15 },
   "POST /api/result": { windowMs: 60000, max: 45 },
   "POST /api/chat": { windowMs: 60000, max: 20 },
   "POST /api/length": { windowMs: 60000, max: 20 },
@@ -194,6 +200,7 @@ function cleanName(name) {
 }
 
 function cleanGameMode(mode) {
+  if (wordChain.modeLength(mode)) return mode;
   return mode === "initial" ? "initial" : "jamo";
 }
 
@@ -222,6 +229,11 @@ function publicState(room) {
     endsAt: room.endsAt,
     gameMode: cleanGameMode(room.gameMode),
     wordLength: room.wordLength,
+    chain: room.chain ? {
+      moves: room.chain.moves.slice(-30),
+      turnId: room.chain.turnId,
+      total: room.chain.moves.length - 1
+    } : null,
     chat: room.chat.slice(-30),
     players: [...room.players.values()].map((player) => ({
       id: player.id,
@@ -230,6 +242,7 @@ function publicState(room) {
       result: player.result,
       tries: player.tries,
       score: player.score || 0,
+      chainHintUsed: Boolean(player.chainHintUsed),
       leftRound: Boolean(player.leftRound),
       finishedAt: player.finishedAt
     })).sort((a, b) => {
@@ -411,10 +424,43 @@ function finishRoundWithWinner(room, winnerId, loserIds = []) {
   broadcastState(room);
 }
 
+function advanceChainTurn(room, playerId) {
+  const order = [...room.players.values()];
+  const from = order.findIndex((player) => player.id === playerId);
+  const offset = order.findIndex((_, index) => {
+    const player = order[(from + index + 1) % order.length];
+    return !player.result && !player.leftRound;
+  });
+  if (offset < 0) return;
+  room.chain.turnId = order[(from + offset + 1) % order.length].id;
+  room.endsAt = Date.now() + wordChain.TURN_MS;
+  clearTimeout(room.timer);
+  room.timer = setTimeout(() => loseChainTurn(room, room.chain.turnId), wordChain.TURN_MS);
+}
+
+function loseChainTurn(room, playerId) {
+  const player = room.players.get(playerId);
+  if (!room.started || !player || player.result) return;
+  player.result = "loss";
+  player.finishedAt = Date.now();
+  const remaining = [...room.players.values()].filter((item) => !item.result);
+  if (remaining.length <= 1) {
+    finishRoundWithWinner(room, remaining[0]?.id);
+  } else {
+    player.leftRound = true;
+    if (room.chain.turnId === playerId) advanceChainTurn(room, playerId);
+    broadcastState(room);
+  }
+}
+
 function leaveDuringRound(room, playerId) {
   const player = requirePlayer(room, playerId);
   if (!room.started) {
     removePlayer(room, playerId, { reason: "방에서 나갔어요" });
+    return;
+  }
+  if (room.chain) {
+    loseChainTurn(room, playerId);
     return;
   }
 
@@ -1058,6 +1104,7 @@ function publicInitialQuestion(answer, room = null) {
 }
 
 function roomQuestion(room) {
+  if (room.chain) return null;
   return cleanGameMode(room.gameMode) === "initial" ? publicInitialQuestion(room.answer, room) : room.answer;
 }
 
@@ -1182,11 +1229,13 @@ async function handleApi(req, res, pathname) {
         const modeChanged = cleanGameMode(room.gameMode) !== nextMode;
         room.wordLength = nextLength;
         room.gameMode = nextMode;
+        if (modeChanged) room.chain = null;
         for (const item of room.players.values()) {
           item.ready = item.id === room.hostId;
         }
-        const modeLabel = nextMode === "initial" ? "초성" : "자모";
-        if (lengthChanged && modeChanged) broadcastSystem(room, `방장이 ${modeLabel} · ${nextLength}낱자로 변경했습니다.`);
+        const chainLength = wordChain.modeLength(nextMode);
+        const modeLabel = chainLength ? `쿵쿵따 ${chainLength}글자` : nextMode === "initial" ? "초성" : "자모";
+        if (lengthChanged && modeChanged && nextMode === "jamo") broadcastSystem(room, `방장이 ${modeLabel} · ${nextLength}낱자로 변경했습니다.`);
         else if (modeChanged) broadcastSystem(room, `방장이 ${modeLabel} 모드로 변경했습니다.`);
         else broadcastSystem(room, `방장이 ${nextLength}낱자로 변경했습니다.`);
       }
@@ -1197,11 +1246,7 @@ async function handleApi(req, res, pathname) {
 
     if (pathname === "/api/leave") {
       const room = requireRoom(body.room);
-      if (room.countdownUntil && Date.now() < room.countdownUntil) throw new Error("시작 준비 중에는 나갈 수 없어요");
-      if (room.countdownUntil && Date.now() >= room.countdownUntil) {
-        room.started = true;
-        room.countdownUntil = 0;
-      }
+      if (room.countdownUntil) throw new Error("시작 준비 중에는 나갈 수 없어요");
       leaveDuringRound(room, body.playerId);
       sendJson(res, 200, { ok: true });
       return;
@@ -1219,26 +1264,35 @@ async function handleApi(req, res, pathname) {
       return;
     }
 
-      if (pathname === "/api/start") {
+    if (pathname === "/api/start") {
       const room = requireRoom(body.room);
       requirePlayer(room, body.playerId);
       if (room.hostId !== body.playerId) throw new Error("방장만 시작할 수 있어요");
+      if (room.started || room.countdownUntil) throw new Error("이미 시작했어요");
       if (room.players.size < 2) throw new Error("2명 이상 모이면 시작할 수 있어요");
       if (room.players.size > 5) throw new Error("최대 5명까지 플레이할 수 있어요");
       const everyoneReady = [...room.players.values()].every((player) => player.ready || player.id === room.hostId);
       if (!everyoneReady) throw new Error("아직 준비하지 않은 사람이 있어요");
       room.gameMode = cleanGameMode(body.gameMode);
-      room.wordLength = room.gameMode === "initial" ? 5 : (Number(body.wordLength) === 6 ? 6 : 5);
-      room.answer = room.gameMode === "initial" ? pickInitialAnswer(room.previousWord) : pickAnswer(room.previousWord, room.wordLength);
-      room.previousWord = room.answer.word;
+      room.wordLength = Number(body.wordLength) === 6 ? 6 : 5;
+      const chainLength = wordChain.modeLength(room.gameMode);
+      const opening = chainLength ? wordChain.starter(chainLength) : "";
+      room.chain = chainLength ? {
+        moves: [{ word: opening, name: "" }],
+        used: new Set([opening]),
+        turnId: ""
+      } : null;
+      room.answer = chainLength ? null : room.gameMode === "initial" ? pickInitialAnswer(room.previousWord) : pickAnswer(room.previousWord, room.wordLength);
+      room.previousWord = room.answer?.word || "";
       if (room.gameMode === "initial") resetInitialHint(room, 0);
       room.started = false;
       room.countdownUntil = Date.now() + COUNTDOWN_MS;
-      room.endsAt = room.countdownUntil + (room.gameMode === "initial" ? INITIAL_ROUND_MS : ROUND_MS);
+      room.endsAt = chainLength ? 0 : room.countdownUntil + (room.gameMode === "initial" ? INITIAL_ROUND_MS : ROUND_MS);
       for (const player of room.players.values()) {
         player.result = "";
         player.tries = 0;
         player.score = 0;
+        player.chainHintUsed = false;
         player.finishedAt = 0;
         player.leftRound = false;
       }
@@ -1248,6 +1302,7 @@ async function handleApi(req, res, pathname) {
       room.countdownTimer = setTimeout(() => {
         room.started = true;
         room.countdownUntil = 0;
+        if (room.chain) advanceChainTurn(room);
         if (room.gameMode === "initial") {
           resetInitialHint(room, Date.now());
           scheduleInitialHint(room);
@@ -1255,9 +1310,9 @@ async function handleApi(req, res, pathname) {
         }
         broadcast(room, { type: "start", answer: roomQuestion(room), endsAt: room.endsAt, state: publicState(room) });
       }, COUNTDOWN_MS);
-      room.timer = setTimeout(() => {
-        finishTimedOutPlayers(room);
-      }, Math.max(0, room.endsAt - Date.now()));
+      if (!chainLength) {
+        room.timer = setTimeout(() => finishTimedOutPlayers(room), Math.max(0, room.endsAt - Date.now()));
+      }
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -1266,6 +1321,7 @@ async function handleApi(req, res, pathname) {
       const room = requireRoom(body.room);
       const player = requirePlayer(room, body.playerId);
       if (!room.started) throw new Error("아직 시작하지 않았어요");
+      if (room.chain) throw new Error("쿵쿵따는 단어를 입력해 진행하세요");
       if (!player.result) {
         player.result = body.result === "win" ? "win" : "loss";
         player.tries = clampTries(body.tries);
@@ -1287,6 +1343,56 @@ async function handleApi(req, res, pathname) {
       }
       broadcastState(room);
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/chain-word") {
+      const room = requireRoom(body.room);
+      const player = requirePlayer(room, body.playerId);
+      if (!room.chain || !room.started) throw new Error("쿵쿵따 진행 중에만 입력할 수 있어요");
+      if (room.chain.turnId !== player.id || player.result) throw new Error("내 차례에만 입력할 수 있어요");
+      if (Date.now() >= room.endsAt) {
+        loseChainTurn(room, player.id);
+        throw new Error("차례 시간이 끝났어요");
+      }
+      const { used, moves } = room.chain;
+      const word = wordChain.validate(body.word, wordChain.modeLength(room.gameMode), moves.at(-1).word, used);
+      moves.push({ word, name: player.name, playerId: player.id });
+      used.add(word);
+      player.lastActive = Date.now();
+      player.tries += 1;
+      advanceChainTurn(room, player.id);
+      broadcastState(room);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/chain-challenge") {
+      const room = requireRoom(body.room);
+      const player = requirePlayer(room, body.playerId);
+      const move = room.chain?.moves.find((item) => item.word === body.word);
+      if (!move?.playerId || move.playerId === player.id) throw new Error("상대가 낸 단어만 확인할 수 있어요");
+      const changed = !move.challenged;
+      move.challenged = true;
+      sendJson(res, 200, { meaning: chainDictionary.lookup(move.word) });
+      if (changed) broadcastState(room);
+      return;
+    }
+
+    if (pathname === "/api/chain-hint") {
+      const room = requireRoom(body.room);
+      const player = requirePlayer(room, body.playerId);
+      if (!room.chain || !room.started) throw new Error("쿵쿵따 진행 중에만 힌트를 쓸 수 있어요");
+      if (room.chain.turnId !== player.id || player.result || Date.now() >= room.endsAt) {
+        throw new Error("내 차례에만 힌트를 쓸 수 있어요");
+      }
+      if (player.chainHintUsed) throw new Error("이번 판의 힌트를 이미 썼어요");
+      const { moves, used } = room.chain;
+      const hint = wordChain.hint(wordChain.modeLength(room.gameMode), moves.at(-1).word, used);
+      if (!hint) throw new Error("이을 수 있는 단어가 없어요");
+      player.chainHintUsed = true;
+      sendJson(res, 200, { hint });
+      broadcastState(room);
       return;
     }
 
@@ -1381,7 +1487,8 @@ function serveFile(req, res, pathname) {
       return;
     }
     const ext = path.extname(filePath);
-    const cacheControl = ext === ".html" ? "no-cache" : "public, max-age=3600";
+    const cacheControl = ext === ".html" || ["word-chain.js", "word-chain-lexicon.js"].includes(relative)
+      ? "no-cache" : "public, max-age=3600";
     res.writeHead(200, { ...securityHeaders, "Content-Type": mimeTypes[ext] || "application/octet-stream", "Cache-Control": cacheControl });
     res.end(content);
   });
@@ -1389,6 +1496,14 @@ function serveFile(req, res, pathname) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (req.method === "GET" && url.pathname === "/api/chain-definition") {
+    if (isRateLimited(req, url.pathname)) {
+      sendJson(res, 429, { error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요." });
+      return;
+    }
+    sendJson(res, 200, { meaning: chainDictionary.lookup(url.searchParams.get("word")) });
+    return;
+  }
   if (req.method === "GET" && url.pathname === "/api/rooms") {
     if (isRateLimited(req, url.pathname)) {
       sendJson(res, 429, { error: "Too many requests" });
